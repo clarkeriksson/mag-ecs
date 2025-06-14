@@ -8,7 +8,7 @@ type QueryCallback<T extends ClassConstructor[]> = { [K in keyof T]: InstanceTyp
  * @class World
  * @summary A mag-ecs world.
  */
-class World
+export class World
 {
     private static _nextId: number = 0;
 
@@ -119,6 +119,7 @@ class World
     }
 }
 
+/*
 class Position {position = true;}
 class Velocity {velocity = true;}
 class Acceleration {acceleration = true;}
@@ -136,3 +137,4 @@ world.query(query, function (position: Position, force: Velocity, acc: Accelerat
     console.log(force);
     console.log(acc);
 });
+*/

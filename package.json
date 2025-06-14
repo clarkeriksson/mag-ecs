@@ -1,6 +1,10 @@
 {
-  "name": "pet-ecs",
-  "version": "1.0.0",
+  "name": "mag-ecs",
+  "version": "1.0.1",
+  "exports": {
+    "./*": "./dist/core/*",
+    "./util/*": "./dist/util/*"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

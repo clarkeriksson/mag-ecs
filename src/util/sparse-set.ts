@@ -1,15 +1,36 @@
-class SparseSet<T>
+// noinspection JSUnusedGlobalSymbols
+
+/**
+ * A sparse set representation of a collection of objects.
+ */
+export class SparseSet<T>
 {
+    /**
+     * The sparse array mapping external access index to internal dense array index.
+     * @private
+     */
     private readonly _sparse: (number | undefined)[];
 
-    private readonly _dense: DenseEntry<T>[];
+    /**
+     * The dense array holding internal data in a packed form.
+     * @private
+     */
+    private readonly _dense: IndexedValue<T>[];
 
+    /**
+     * Creates an instance of {@link SparseSet}.
+     */
     public constructor()
     {
         this._sparse = [];
         this._dense = [];
     }
 
+    /**
+     * Adds the given value to the spot corresponding with the given index.
+     * @param index
+     * @param value
+     */
     public add(index: number, value: T): boolean
     {
         if (this._sparse[index] !== undefined)
@@ -23,6 +44,10 @@ class SparseSet<T>
         return true;
     }
 
+    /**
+     * Removes the value corresponding to the given index.
+     * @param index
+     */
     public remove(index: number): T | null
     {
         let denseIndex = this._sparse[index];
@@ -43,15 +68,14 @@ class SparseSet<T>
         return removed.value;
     }
 
+    /**
+     * Gets the value associated with the provided index.
+     * Ignores the possibility of nullish values, use with caution.
+     * @param index
+     */
     public getUnchecked(index: number): T
     {
         let denseIndex = this._sparse[index]!;
         return this._dense[denseIndex].value;
     }
-}
-
-interface DenseEntry<T>
-{
-    index: number;
-    value: T;
 }

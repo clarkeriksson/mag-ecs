@@ -1,55 +1,150 @@
-import {Bitset} from "../util/bitset";
-import {ClassConstructor, ConstructorsOf, Component} from "./component";
+// noinspection JSUnusedGlobalSymbols
 
+import {Bitset} from "../util/bitset";
+import {Component} from "./component";
+
+/**
+ * Specifies the types of entities iterated in a query-like operation.
+ * @class
+ */
 export class QueryDefinition<T extends any[] = any[]>
 {
-    public paramTypes: ClassConstructor[];
+    /**
+     * Internal representation of {@link paramTypes}.
+     * @private
+     */
+    private _paramTypes: ClassConstructor[];
 
-    private _withAll: Bitset;
-
-    private _withNone: Bitset;
-
-    private _withAny: Bitset;
-
-    private _withOnly: (Bitset | null);
-
-    public constructor()
+    /**
+     * The types directly supplied into query callback functions for this {@link QueryDefinition}.
+     * This corresponds to types provided to either {@link withAll} or {@link withOnly} (exclusive).
+     */
+    public get paramTypes(): ClassConstructor[]
     {
-        this.paramTypes = [];
-        this._withAll = new Bitset();
-        this._withNone = new Bitset();
-        this._withAny = new Bitset();
-        this._withOnly = null;
+        return this._paramTypes;
     }
 
-    public withAll<TClasses extends any[]>(...types: ConstructorsOf<TClasses>): QueryDefinition<TClasses>
+    /**
+     * Bitset representing what types a queried entity needs all of.
+     * @private
+     */
+    private _withAll: Bitset;
+
+    /**
+     * Bitset representing what types a queried entity can have none of.
+     * @private
+     */
+    private _withNone: Bitset;
+
+    /**
+     * Bitset representing what types a queried entity can have one of.
+     * @private
+     */
+    private _withOne: Bitset;
+
+    /**
+     * Bitset representing what types a queried entity must have at least one of.
+     * @private
+     */
+    private _withSome: Bitset;
+
+    /**
+     * Bitset representing what types a queried entity needs exactly all of.
+     * @private
+     */
+    private _withOnly: Bitset;
+
+    /**
+     * Creates an instance of {@link QueryDefinition}.
+     * @constructor
+     */
+    public constructor()
     {
-        this.paramTypes = types;
+        this._paramTypes = [];
+        this._withAll = new Bitset();
+        this._withNone = new Bitset();
+        this._withOne = new Bitset();
+        this._withSome = new Bitset();
+        this._withOnly = new Bitset();
+    }
+
+    /**
+     * Modifies the {@link QueryDefinition} to require all given types.
+     * Should not be used with any other query modifying methods.
+     * @param types
+     */
+    public withAll<TClasses extends any[]>(...types: ClassConstructorsOf<TClasses>): QueryDefinition<TClasses>
+    {
+        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withAll' filter on a query " +
+            "definition with a preexisting 'withOnly' filter.");
+
+        this._paramTypes = types;
         this._withAll = Component.bitsetFromTypes(...types);
         return this as QueryDefinition<TClasses>;
     }
 
+    /**
+     * Modifies the {@link QueryDefinition} to exclude all given types.
+     * Should not be used with the {@link QueryDefinition.withOnly} method.
+     * @param types
+     */
     public withNone(...types: ClassConstructor[]): QueryDefinition<T>
     {
+        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withNone' filter on a query " +
+            "definition with a preexisting 'withOnly' filter.");
+
         this._withNone = Component.bitsetFromTypes(...types);
         return this;
     }
 
+    /**
+     * Modifies the {@link QueryDefinition} to require one of the given types exclusively.
+     * Should not be used with the {@link QueryDefinition.withOnly} method.
+     * @param types
+     */
+    public withOne(...types: ClassConstructor[]): QueryDefinition<T>
+    {
+        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withOne' filter on a query " +
+            "definition with a preexisting 'withOnly' filter.");
+
+        this._withOne = Component.bitsetFromTypes(...types);
+        return this;
+    }
+
+    /**
+     * Modifies the {@link QueryDefinition} to require all given types exclusively.
+     * Should not be used with any other query modifying methods.
+     * @param types
+     */
+    public withOnly<TClasses extends any[]>(...types: ClassConstructorsOf<TClasses>): QueryDefinition<TClasses>
+    {
+        if (this._withAll.setCount !== 0 || this._withNone.setCount !== 0) throw new Error("Attempted to apply a " +
+            "'withOnly' filter on a query definition with a preexisting 'withAll' or 'withNone' filter.");
+
+        this._paramTypes = types;
+        this._withOnly = Component.bitsetFromTypes(...types);
+        return this as QueryDefinition<TClasses>;
+    }
+
+    /**
+     * Returns a boolean representing whether the given {@link Bitset} satisfies this {@link QueryDefinition}.
+     * @param signature
+     */
     public satisfiedBy(signature: Bitset): boolean
     {
         // With Only Check
-        if (this._withOnly !== null) return signature.equals(this._withOnly);
+        if (this._withOnly.setCount !== 0) return signature.equals(this._withOnly);
 
         // With None Check
-        const withNoneMatch = signature.isSupersetOf(this._withNone);
-        if (withNoneMatch) return false;
+        if (this._withNone.overlaps(signature)) return false;
+
+        // With One Check
+        if (this._withOne.setCount !== 0 && Bitset.and(this._withOne, signature).setCount !== 1) return false;
+
+        // With Some Check
+        if (this._withSome.setCount !== 0 && Bitset.and(this._withSome, signature).setCount === 0) return false;
 
         // With All Check
-        const withAllCheck = signature.isSupersetOf(this._withAll);
-
-        // With Any Check
-        const withAnyCheck = signature.isSubsetOf(this._withAny);
-
-        return withAllCheck && withAnyCheck;
+        return signature.isSupersetOf(this._withAll);
     }
 }

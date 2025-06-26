@@ -1,29 +1,57 @@
-import {ClassConstructor, ConstructorsOf, Component} from "./component";
+// noinspection JSUnusedGlobalSymbols
+
+import {Component} from "./component";
 import {QueryDefinition} from "./query-definition";
 import {Bitset} from "../util/bitset";
 
-type QueryCallback<T extends ClassConstructor[]> = { [K in keyof T]: InstanceType<T[K]> };
-
 /**
  * @class World
- * @summary A mag-ecs world.
+ * @summary A mag-ecs world. Informally represents what should be a (mostly) isolated ECS context.
  */
-export class World
+class World
 {
+    /**
+     * Static incrementing value used for {@link World} ids.
+     * @private
+     */
     private static _nextId: number = 0;
 
-    public readonly _id: number;
+    /**
+     * The {@link World} id.
+     */
+    public readonly id: number;
 
+    /**
+     * Array of entity {@link Bitset}(s), where index corresponds to entity id. Empty spots are null.
+     * @private
+     */
     private readonly _entities: (Bitset | null)[];
 
+    /**
+     * Array of unused entity ids, for entity id recycling.
+     * @private
+     */
     private readonly _cemetery: number[];
 
-    private readonly _queryCache: Map<QueryDefinition<any[]>, number[]>;
-    private readonly _queryCacheDirty: Map<QueryDefinition<any[]>, boolean>;
+    /**
+     * Cache containing lists of entity ids corresponding to previously used {@link QueryDefinition}(s).
+     * @private
+     */
+    private readonly _queryCache: Map<QueryDefinition, number[]>;
 
+    /**
+     * Map translating previously used {@link QueryDefinition}(s) to a bool representing if their cache is dirty.
+     * @private
+     */
+    private readonly _queryCacheDirty: Map<QueryDefinition, boolean>;
+
+    /**
+     * Creates an instance of {@link World}.
+     * @constructor
+     */
     public constructor()
     {
-        this._id = World._nextId;
+        this.id = World._nextId;
         World._nextId++;
 
         this._entities = [];
@@ -33,6 +61,10 @@ export class World
         this._queryCacheDirty = new Map();
     }
 
+    /**
+     * Creates an entity in this {@link World} with the given components.
+     * @param components
+     */
     public create(...components: any[]): number
     {
         let entity = this._cemetery.pop();
@@ -46,14 +78,22 @@ export class World
             Component.set(entity, component);
         }
 
-        this.dirtyQueriesFor(Component.bitsetFromComponents(components))
+        const bitset = Component.bitsetFromComponents(...components);
+
+        this.dirtyQueriesMatching(bitset)
+
+        this._entities[entity] = bitset;
 
         return entity;
     }
 
+    /**
+     * Removes the given entity from this {@link World}.
+     * @param entity
+     */
     public remove(entity: number): boolean
     {
-        this.dirtyQueriesFor(this._entities[entity] ?? Bitset.null);
+        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
 
         const removed = Component.remove(entity);
 
@@ -63,6 +103,11 @@ export class World
         return removed;
     }
 
+    /**
+     * Gets components of the provided types from the given entity and returns them in a corresponding array.
+     * @param types
+     * @param entity
+     */
     public get<T extends any[]>(types: T, entity: number): T
     {
         const signature = Component.bitsetFromTypes(...types);
@@ -77,7 +122,12 @@ export class World
         return result;
     }
 
-    private dirtyQueriesFor(signature: Bitset): void
+    /**
+     * Dirties the cached queries with {@link QueryDefinition}(s) matching the given {@link Bitset}.
+     * @param signature
+     * @private
+     */
+    private dirtyQueriesMatching(signature: Bitset): void
     {
         for (const [cacheQuery, _] of this._queryCacheDirty)
         {
@@ -88,6 +138,11 @@ export class World
         }
     }
 
+    /**
+     * Updates the cache for the query with the given {@link QueryDefinition}.
+     * @param queryDefinition
+     * @private
+     */
     private refreshQuery<T extends any[]>(queryDefinition: QueryDefinition<T>): void
     {
         const newQueryResult: number[] = [];
@@ -102,6 +157,11 @@ export class World
         this._queryCacheDirty.set(queryDefinition, false);
     }
 
+    /**
+     * Queries using the given {@link QueryDefinition} and maps the provided callback across queried components.
+     * @param queryDefinition
+     * @param callback
+     */
     public query<T extends any[]>(queryDefinition: QueryDefinition<T>, callback: (...components: T) => void): void
     {
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
@@ -117,24 +177,27 @@ export class World
             callback(...components as T);
         }
     }
+
+    /**
+     * Queries using the given {@link QueryDefinition} and maps the provided callback across queried entities and components.
+     * @param queryDefinition
+     * @param callback
+     */
+    public entityQuery<T extends any[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: T) => void): void
+    {
+        if (this._queryCache.get(queryDefinition) ?? true)
+        {
+            this.refreshQuery(queryDefinition);
+        }
+
+        const entities = this._queryCache.get(queryDefinition)!;
+
+        for (const entity of entities)
+        {
+            const components = this.get(queryDefinition.paramTypes, entity);
+            callback(entity, ...components as T);
+        }
+    }
 }
 
-/*
-class Position {position = true;}
-class Velocity {velocity = true;}
-class Acceleration {acceleration = true;}
-class Force {force = true;}
-class Mass {mass = true;}
-
-const world = new World();
-
-const query = new QueryDefinition()
-    .withAll(Position, Velocity, Acceleration)
-    .withNone(Mass);
-
-world.query(query, function (position: Position, force: Velocity, acc: Acceleration) {
-    console.log(position);
-    console.log(force);
-    console.log(acc);
-});
-*/
+export { World };

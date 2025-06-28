@@ -61,11 +61,24 @@ class World
         this._queryCacheDirty = new Map();
     }
 
+    // noinspection JSUnusedLocalSymbols
+    /**
+     * Update the world.
+     * @param dt
+     */
+    public update(dt: number): void
+    {
+        for (const [def, value] of this._queryCacheDirty.entries())
+        {
+            if (value) this.refreshQuery(def);
+        }
+    }
+
     /**
      * Creates an entity in this {@link World} with the given components.
      * @param components
      */
-    public create(...components: any[]): number
+    public create(...components: TaggedComponent[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -75,7 +88,7 @@ class World
 
         for (const component of components)
         {
-            Component.set(entity, component);
+            this.addComponentUnsafe(entity, component);
         }
 
         const bitset = Component.bitsetFromComponents(...components);
@@ -88,6 +101,53 @@ class World
     }
 
     /**
+     * Adds a component to an entity, adjusts the entity signature, and updates relevant queries.
+     * @param entity
+     * @param value
+     * @param type
+     */
+    public addComponent<T>(entity: number, { value, type }: TaggedComponent<T>): number
+    {
+        Component.set(entity, value, type);
+
+        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this._entities[entity]?.set(Component.T(type).id, true);
+        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+
+        return entity;
+    }
+
+    /**
+     * Removes a component from an entity, adjusts the entity signature, and updates relevant queries.
+     * @param entity
+     * @param type
+     */
+    public removeComponent<T>(entity: number, type: ComponentType<T>): boolean
+    {
+        const removed = Component.removeComponent(entity, type);
+
+        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this._entities[entity]?.set(Component.T(type).id, false);
+        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+
+        return removed !== null;
+    }
+
+    /**
+     * Adds a component to an entity without performing side effects.
+     * Dangerous, use with caution when you plan on manually performing side effects.
+     * @param entity
+     * @param value
+     * @param type
+     * @private
+     */
+    private addComponentUnsafe<T>(entity: number, { value, type }: TaggedComponent<T>): number
+    {
+        Component.set(entity, value, type);
+        return entity;
+    }
+
+    /**
      * Removes the given entity from this {@link World}.
      * @param entity
      */
@@ -95,7 +155,7 @@ class World
     {
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
 
-        const removed = Component.remove(entity);
+        const removed = Component.removeAll(entity);
 
         this._entities[entity] = null;
         this._cemetery.push(entity);
@@ -108,12 +168,12 @@ class World
      * @param types
      * @param entity
      */
-    public get<T extends any[]>(types: T, entity: number): T
+    public get<T extends ComponentType[]>(types: T, entity: number): ComponentTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
 
-        let result= [] as unknown as T;
+        let result= [] as unknown as ComponentTuple<T>;
         for (const type of types)
         {
             result.push(Component.getUnchecked(entity, type))
@@ -143,7 +203,7 @@ class World
      * @param queryDefinition
      * @private
      */
-    private refreshQuery<T extends any[]>(queryDefinition: QueryDefinition<T>): void
+    private refreshQuery<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>): void
     {
         const newQueryResult: number[] = [];
         this._queryCache.set(queryDefinition, newQueryResult);
@@ -162,7 +222,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public query<T extends any[]>(queryDefinition: QueryDefinition<T>, callback: (...components: T) => void): void
+    public query<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentTuple<T>) => void): void
     {
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
@@ -174,7 +234,7 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(...components as T);
+            callback(...components as ComponentTuple<T>);
         }
     }
 
@@ -183,7 +243,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public entityQuery<T extends any[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: T) => void): void
+    public entityQuery<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentTuple<T>) => void): void
     {
         if (this._queryCache.get(queryDefinition) ?? true)
         {
@@ -195,9 +255,27 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(entity, ...components as T);
+            callback(entity, ...components as ComponentTuple<T>);
         }
     }
 }
 
 export { World };
+
+/*
+const test = new World();
+
+const Type1 = Component.register<string>("Type1");
+class Test2 {test2 = true;}
+const Type2 = Component.register<Test2>("Type2");
+class Test3 {test3 = true;}
+const Type3 = Component.register<Test3>("Type3");
+
+const Type4 = Component.register<number>("Type4");
+
+const def = new QueryDefinition()
+    .withAll(Type1, Type3, Type4)
+    .withNone(Type2);
+
+test.query(def, (t1, t3, t4) => {});
+*/

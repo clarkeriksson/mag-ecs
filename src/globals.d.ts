@@ -8,10 +8,29 @@ export declare global
     declare type ClassConstructor<T = any> = new (...args: any[]) => T;
 
     /**
-     * Mapped class constructor type.
+     * Primitive keyed type.
+     * Used for arguments of components that are tagged primitives.
      * @type
      */
-    declare type ClassConstructorsOf<T> = { [K in keyof T]: ClassConstructor<T[K]> };
+    declare type ComponentKey<T = any> = symbol & { __type?: T };
+
+    /**
+     * Component type definitions.
+     * @type
+     */
+    declare type ComponentType<T = any> = ClassConstructor<T>;
+
+    /**
+     * Maps an array of component types to their data's types.
+     * @type
+     */
+    declare type ComponentTuple<T extends readonly ComponentType[]> = { [K in keyof T]: T[K] extends ComponentType<infer U> ? U : never };
+
+    /**
+     * Component value with it's associated type tag.
+     * @type
+     */
+    declare type TaggedComponent<T = any> = { value: T, type: ComponentType<T> };
 
     /**
      * Interface representing a value bundled with an index.

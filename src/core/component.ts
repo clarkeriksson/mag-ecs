@@ -10,10 +10,16 @@ import { SparseSet } from "../util/sparse-set";
 export class Component
 {
     /**
-     * Holds the instances of {@link Component} for each {@link ClassConstructor}.
+     * Holds the instances of {@link Component} for each {@link ComponentType}.
      * @private
      */
-    private static readonly _statics: Map<ClassConstructor, Component> = new Map();
+    private static readonly _statics: Map<ComponentType, Component> = new Map();
+
+    /**
+     * Counter for assigning unique Ids.
+     * @private
+     */
+    private static _idCounter: number = 0;
 
     /**
      * The internal representation of the {@link Component} id.
@@ -27,10 +33,10 @@ export class Component
     public get id(): number { return this._id; }
 
     /**
-     * The class constructor of the component-type.
+     * The type of this {@link Component}.
      * @private
      */
-    public readonly ctor: ClassConstructor;
+    public readonly type: ComponentType;
 
     /**
      * The {@link Bitset} representing this component-type.
@@ -45,41 +51,65 @@ export class Component
 
     /**
      * Creates an instance of {@link Component}.
-     * @param ctor
+     * @param type
      * @param id
      * @private
      */
-    private constructor(ctor: ClassConstructor, id: number)
+    private constructor(type: ComponentType, id: number)
     {
-        this.ctor = ctor;
+        this.type = type;
         this._id = id;
         this.signature = new Bitset();
         this.signature.set(id, true);
         this._instances = new SparseSet();
 
-        Component._statics.set(ctor, this);
+        Component._statics.set(type, this);
     }
 
     /**
-     * Provides the unique {@link Component} instance associated with the class provided.
+     * Provides the unique {@link Component} instance associated with the type provided.
      * Automatically sets up a new instance if necessary.
-     * @param ctor
+     * @param type
      * @constructor
      */
-    public static T(ctor: ClassConstructor): Component
+    public static T<T>(type: ComponentType<T>): Component
     {
-        let $static = Component._statics.get(ctor);
-        return $static ?? this.addUnchecked(ctor);
+        let $static = Component._statics.get(type);
+        return $static ?? this.addUnchecked(type);
+    }
+
+    /**
+     * Ensures a {@link Component} instance has been created for the given type and returns it's {@link ComponentType}
+     * representation.
+     * @param name
+     */
+    public static register<T>(name: string): ComponentType<T>
+    {
+        const type = Component.createComponentType<T>(name);
+        Component.T(type);
+
+        return type;
     }
 
     /**
      * Gets the {@link SparseSet} of component-type instances.
      * Creates the {@link Component} instance if it does not exist.
-     * @param ctor
+     * @param type
      */
-    public static getSet<T = any>(ctor: ClassConstructor<T>): SparseSet<T>
+    public static getSet<T>(type: ComponentType<T>): SparseSet<T>
     {
-        return Component.T(ctor)._instances as SparseSet<T>;
+        return Component.T(type)._instances as SparseSet<T>;
+    }
+
+    /**
+     * Gets a component instance for the given index from the {@link SparseSet} of instances.
+     * Returns null if none are found.
+     * @param index
+     * @param type
+     */
+    public static get<T>(index: number, type: ComponentType<T>): T | null
+    {
+        return Component.getSet(type).get(index);
     }
 
     /**
@@ -88,7 +118,7 @@ export class Component
      * @param index
      * @param type
      */
-    public static getUnchecked<T>(index: number, type: ClassConstructor<T>): T
+    public static getUnchecked<T>(index: number, type: ComponentType<T>): T
     {
         return Component.getSet(type).getUnchecked(index);
     }
@@ -98,17 +128,28 @@ export class Component
      * Creates the {@link Component} instance if it does not exist.
      * @param index
      * @param component
+     * @param type
      */
-    public static set(index: number, component: any): void
+    public static set<T>(index: number, component: T, type: ComponentType<T>): void
     {
-        Component.getSet(component.constructor).add(index, component);
+        Component.getSet(type).add(index, component);
+    }
+
+    /**
+     * Checks if an entity has a component of a given type.
+     * @param index
+     * @param type
+     */
+    public static has<T>(index: number, type: ComponentType<T>): boolean
+    {
+        return Component.getSet(type).has(index);
     }
 
     /**
      * Removes all component-type instances corresponding to the given index.
      * @param index
      */
-    public static remove(index: number): boolean
+    public static removeAll(index: number): boolean
     {
         let result = false;
         for (const component of Component._statics.values())
@@ -119,27 +160,33 @@ export class Component
     }
 
     /**
+     * Removes a specific component type from the given index.
+     * @param index
+     * @param type
+     */
+    public static removeComponent<T>(index: number, type: ComponentType<T>): T | null
+    {
+        return Component.getSet(type).remove(index);
+    }
+
+    /**
      * Creates a new instance of {@link Component} from the given constructor.
      * Does not check for uniqueness, use with caution.
-     * @param ctor
+     * @param type
      * @private
      */
-    private static addUnchecked(ctor: any): Component
+    private static addUnchecked(type: ComponentType): Component
     {
-        const id = Component._statics.size;
+        const id = Component._idCounter++;
 
-        const component = new Component(ctor, id);
-
-        Component._statics.set(ctor, component);
-
-        return component;
+        return new Component(type, id);
     }
 
     /**
      * Provides a unique {@link Bitset} from the provided component-types.
      * @param types
      */
-    public static bitsetFromTypes(...types: any[]): Bitset
+    public static bitsetFromTypes(...types: ComponentType[]): Bitset
     {
         const result = new Bitset();
         for (const type of types)
@@ -150,18 +197,35 @@ export class Component
     }
 
     /**
-     * Provides a unique {@link Bitset} from the provided component-type instances.
+     * Provides a unique {@link Bitset} from the provided tagged component instances.
      * @param components
      */
-    public static bitsetFromComponents(...components: any[]): Bitset
+    public static bitsetFromComponents(...components: TaggedComponent[]): Bitset
     {
         const result = new Bitset();
         for (let i = 0; i < components.length; i++)
         {
             const component = components[i];
-            result.set(Component.T(component.constructor).id, true);
+            result.set(Component.T(component.type).id, true);
         }
         return result;
+    }
+
+    /**
+     * Gets all currently registered component types.
+     */
+    public static getAllTypes(): ComponentType[]
+    {
+        return Array.from(Component._statics.keys());
+    }
+
+    /**
+     * Gets the {@link Component} instance for a given type.
+     * @param type
+     */
+    public static metadata<T>(type: ComponentType<T>): Component | null
+    {
+        return Component._statics.get(type) ?? null;
     }
 
     /**
@@ -169,6 +233,34 @@ export class Component
      */
     public static dispose(): void
     {
-        this._statics.clear();
+        Component._statics.clear();
+        Component._idCounter = 0;
+    }
+
+    /**
+     * Creates a typed key for primitive {@link Component} types.
+     * @param name
+     * @private
+     */
+    public static createComponentKey<T>(name: string): ComponentKey<T>
+    {
+        return Symbol(name) as ComponentKey<T>;
+    }
+
+    /**
+     * Returns the {@link ComponentType} of created type T with the provided name.
+     * @param name
+     */
+    private static createComponentType<T>(name: string): ComponentType<T>
+    {
+        const pseudoConstructor = function(value?: T): T
+        {
+            return arguments.length > 0 ? value! : undefined as any;
+        } as any;
+
+        Object.defineProperty(pseudoConstructor, 'name', { value: name });
+        pseudoConstructor.__isPrimitiveType = true;
+
+        return pseudoConstructor as ComponentType<T>;
     }
 }

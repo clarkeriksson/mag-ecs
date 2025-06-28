@@ -69,6 +69,28 @@ export class SparseSet<T>
     }
 
     /**
+     * Gets the value associated with provided index.
+     * Returns null if the value is not found.
+     * @param index
+     */
+    public get(index: number): T | null
+    {
+        let denseIndex = this._sparse[index];
+        if (denseIndex === undefined) return null;
+
+        return this._dense[denseIndex].value;
+    }
+
+    /**
+     * Checks for the existence of an index value in this {@link SparseSet}.
+     * @param index
+     */
+    public has(index: number): boolean
+    {
+        return this._sparse[index] !== undefined
+    }
+
+    /**
      * Gets the value associated with the provided index.
      * Ignores the possibility of nullish values, use with caution.
      * @param index

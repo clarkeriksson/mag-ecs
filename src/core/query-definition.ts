@@ -7,19 +7,19 @@ import {Component} from "./component";
  * Specifies the types of entities iterated in a query-like operation.
  * @class
  */
-export class QueryDefinition<T extends any[] = any[]>
+export class QueryDefinition<T extends readonly ComponentType[] = ComponentType[]>
 {
     /**
      * Internal representation of {@link paramTypes}.
      * @private
      */
-    private _paramTypes: ClassConstructor[];
+    private _paramTypes: ComponentType[];
 
     /**
      * The types directly supplied into query callback functions for this {@link QueryDefinition}.
      * This corresponds to types provided to either {@link withAll} or {@link withOnly} (exclusive).
      */
-    public get paramTypes(): ClassConstructor[]
+    public get paramTypes(): ComponentType[]
     {
         return this._paramTypes;
     }
@@ -73,14 +73,14 @@ export class QueryDefinition<T extends any[] = any[]>
      * Should not be used with any other query modifying methods.
      * @param types
      */
-    public withAll<TClasses extends any[]>(...types: ClassConstructorsOf<TClasses>): QueryDefinition<TClasses>
+    public withAll<T extends ComponentType[]>(...types: T): QueryDefinition<T>
     {
         if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withAll' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
 
         this._paramTypes = types;
         this._withAll = Component.bitsetFromTypes(...types);
-        return this as QueryDefinition<TClasses>;
+        return this as QueryDefinition<T>;
     }
 
     /**
@@ -88,7 +88,7 @@ export class QueryDefinition<T extends any[] = any[]>
      * Should not be used with the {@link QueryDefinition.withOnly} method.
      * @param types
      */
-    public withNone(...types: ClassConstructor[]): QueryDefinition<T>
+    public withNone(...types: ComponentType[]): QueryDefinition<T>
     {
         if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withNone' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
@@ -102,7 +102,7 @@ export class QueryDefinition<T extends any[] = any[]>
      * Should not be used with the {@link QueryDefinition.withOnly} method.
      * @param types
      */
-    public withOne(...types: ClassConstructor[]): QueryDefinition<T>
+    public withOne(...types: ComponentType[]): QueryDefinition<T>
     {
         if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withOne' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
@@ -116,14 +116,14 @@ export class QueryDefinition<T extends any[] = any[]>
      * Should not be used with any other query modifying methods.
      * @param types
      */
-    public withOnly<TClasses extends any[]>(...types: ClassConstructorsOf<TClasses>): QueryDefinition<TClasses>
+    public withOnly<T extends ComponentType[]>(...types: T): QueryDefinition<T>
     {
         if (this._withAll.setCount !== 0 || this._withNone.setCount !== 0) throw new Error("Attempted to apply a " +
             "'withOnly' filter on a query definition with a preexisting 'withAll' or 'withNone' filter.");
 
         this._paramTypes = types;
         this._withOnly = Component.bitsetFromTypes(...types);
-        return this as QueryDefinition<TClasses>;
+        return this as QueryDefinition<T>;
     }
 
     /**

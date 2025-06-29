@@ -3,6 +3,8 @@
 import {Component} from "./component";
 import {QueryDefinition} from "./query-definition";
 import {Bitset} from "../util/bitset";
+import {System} from "./system";
+import {TimeContext} from "../util/time-context";
 
 /**
  * @class World
@@ -10,6 +12,12 @@ import {Bitset} from "../util/bitset";
  */
 class World
 {
+    /**
+     * Holds all {@link World} instances.
+     * @private
+     */
+    private static readonly _statics: World[] = [];
+
     /**
      * Static incrementing value used for {@link World} ids.
      * @private
@@ -46,6 +54,12 @@ class World
     private readonly _queryCacheDirty: Map<QueryDefinition, boolean>;
 
     /**
+     * This {@link World}'s registered systems.
+     * @private
+     */
+    private readonly _systems: System[];
+
+    /**
      * Creates an instance of {@link World}.
      * @constructor
      */
@@ -59,19 +73,73 @@ class World
 
         this._queryCache = new Map();
         this._queryCacheDirty = new Map();
+
+        this._systems = [];
+
+        World._statics.push(this);
     }
 
-    // noinspection JSUnusedLocalSymbols
     /**
-     * Update the world.
-     * @param dt
+     * Update all active {@link World}(s).
+     * @static
      */
-    public update(dt: number): void
+    public static update(): void
+    {
+        TimeContext.onStart();
+
+        for (const world of World._statics)
+        {
+            world.update();
+        }
+
+        TimeContext.onEnd();
+    }
+
+    /**
+     * Update the {@link World}.
+     */
+    public update(): void
     {
         for (const [def, value] of this._queryCacheDirty.entries())
         {
             if (value) this.refreshQuery(def);
         }
+
+        for (const system of this._systems)
+        {
+            system.run(this);
+        }
+    }
+
+    /**
+     * Registers a new {@link System} to this {@link World}.
+     * @param system
+     */
+    public registerSystem(system: System): boolean
+    {
+        if (this._systems.includes(system)) return false;
+
+        this._systems.push(system);
+        this._systems.sort((a, b) => a.runIndex - b.runIndex);
+
+        return true;
+    }
+
+    /**
+     * Registers many new {@link System}(s) to this {@link World}.
+     * Defers sorting to the end.
+     * @param systems
+     */
+    public registerSystems(...systems: System[]): void
+    {
+        for (const system of systems)
+        {
+            if (this._systems.includes(system)) continue;
+
+            this._systems.push(system);
+        }
+
+        this._systems.sort((a, b) => a.runIndex - b.runIndex);
     }
 
     /**

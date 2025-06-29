@@ -52,15 +52,14 @@ export class Component
     /**
      * Creates an instance of {@link Component}.
      * @param type
-     * @param id
      * @private
      */
-    private constructor(type: ComponentType, id: number)
+    private constructor(type: ComponentType)
     {
         this.type = type;
-        this._id = id;
+        this._id = Component._idCounter++;
         this.signature = new Bitset();
-        this.signature.set(id, true);
+        this.signature.set(this._id, true);
         this._instances = new SparseSet();
 
         Component._statics.set(type, this);
@@ -177,9 +176,7 @@ export class Component
      */
     private static addUnchecked(type: ComponentType): Component
     {
-        const id = Component._idCounter++;
-
-        return new Component(type, id);
+        return new Component(type);
     }
 
     /**

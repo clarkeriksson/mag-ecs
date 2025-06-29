@@ -3,3 +3,4 @@
 # Transpiled JS should not be included in repository.
 # Rather it should be included in the npm package alone.
 /dist
+*.tgz

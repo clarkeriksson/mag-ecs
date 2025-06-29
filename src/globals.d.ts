@@ -12,7 +12,12 @@ export declare global
      * Used for arguments of components that are tagged primitives.
      * @type
      */
-    declare type ComponentKey<T = any> = symbol & { __type?: T };
+    declare type ComponentKey<T = any> = symbol & { __type?: T, __component: true };
+
+    /**
+     * System keyed type. Used to create a type-safe system access instead of strings.
+     */
+    declare type SystemKey<T = any> = symbol & { __type?: T, __system: true };
 
     /**
      * Component type definitions.

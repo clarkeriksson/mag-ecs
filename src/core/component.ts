@@ -2,18 +2,17 @@
 
 import {Bitset} from "../util/bitset";
 import { SparseSet } from "../util/sparse-set";
-
 /**
  * Pseudo-static class used to access and automatically manage component-type information.
  * @class
  */
-export class Component
+export class Component<CType>
 {
     /**
      * Holds the instances of {@link Component} for each {@link ComponentType}.
      * @private
      */
-    private static readonly _statics: Map<ComponentType, Component> = new Map();
+    private static readonly _statics: Map<ComponentType<any>, Component<any>> = new Map();
 
     /**
      * Counter for assigning unique Ids.
@@ -36,7 +35,7 @@ export class Component
      * The type of this {@link Component}.
      * @private
      */
-    public readonly type: ComponentType;
+    public readonly type: ComponentType<CType>;
 
     /**
      * The {@link Bitset} representing this component-type.
@@ -54,7 +53,7 @@ export class Component
      * @param type
      * @private
      */
-    private constructor(type: ComponentType)
+    private constructor(type: ComponentType<CType>)
     {
         this.type = type;
         this._id = Component._idCounter++;
@@ -71,7 +70,7 @@ export class Component
      * @param type
      * @constructor
      */
-    public static T<T>(type: ComponentType<T>): Component
+    public static T<T>(type: ComponentType<T>): Component<T>
     {
         let $static = Component._statics.get(type);
         return $static ?? this.addUnchecked(type);
@@ -88,6 +87,46 @@ export class Component
         Component.T(type);
 
         return type;
+    }
+
+    public static createClassComponent<T extends new (...args: any[]) => any>(ctor: T): ClassComponentType<T>
+    {
+        class PseudoClass
+        {
+            public static name: string = ctor.name;
+            public static __isClassType: true = true;
+
+            public value: InstanceType<T>;
+            public type: typeof PseudoClass;
+
+            constructor(...args: ConstructorParameters<T>)
+            {
+                this.value = new ctor(...args);
+                this.type = PseudoClass;
+            }
+        }
+
+        return PseudoClass;
+    }
+
+    public static createValueComponent<T extends ValueType>(name: string): ValueComponentType<T>
+    {
+        class PseudoValue
+        {
+            public static name: string = name;
+            public static __isValueType: true = true;
+
+            public value: T;
+            public type: typeof PseudoValue;
+
+            constructor(arg: T)
+            {
+                this.value = arg;
+                this.type = PseudoValue;
+            }
+        }
+
+        return PseudoValue;
     }
 
     /**
@@ -129,9 +168,9 @@ export class Component
      * @param component
      * @param type
      */
-    public static set<T>(index: number, component: T, type: ComponentType<T>): void
+    public static set(index: number, component: ComponentInstance<any>): void
     {
-        Component.getSet(type).add(index, component);
+        Component.getSet(component.type).add(index, component.value);
     }
 
     /**
@@ -174,7 +213,7 @@ export class Component
      * @param type
      * @private
      */
-    private static addUnchecked(type: ComponentType): Component
+    private static addUnchecked<T>(type: ComponentType<T>): Component<T>
     {
         return new Component(type);
     }
@@ -183,7 +222,7 @@ export class Component
      * Provides a unique {@link Bitset} from the provided component-types.
      * @param types
      */
-    public static bitsetFromTypes(...types: ComponentType[]): Bitset
+    public static bitsetFromTypes(...types: ComponentType<any>[]): Bitset
     {
         const result = new Bitset();
         for (const type of types)
@@ -197,7 +236,7 @@ export class Component
      * Provides a unique {@link Bitset} from the provided tagged component instances.
      * @param components
      */
-    public static bitsetFromComponents(...components: TaggedComponent[]): Bitset
+    public static bitsetFromComponents<T extends ComponentInstance<any>[]>(...components: T): Bitset
     {
         const result = new Bitset();
         for (let i = 0; i < components.length; i++)
@@ -211,7 +250,7 @@ export class Component
     /**
      * Gets all currently registered component types.
      */
-    public static getAllTypes(): ComponentType[]
+    public static getAllTypes(): ComponentType<any>[]
     {
         return Array.from(Component._statics.keys());
     }
@@ -220,9 +259,9 @@ export class Component
      * Gets the {@link Component} instance for a given type.
      * @param type
      */
-    public static metadata<T>(type: ComponentType<T>): Component | null
+    public static metadata<T>(type: ComponentType<T>): Component<T>| null
     {
-        return Component._statics.get(type) ?? null;
+        return Component._statics.get(type as any) ?? null;
     }
 
     /**
@@ -232,16 +271,6 @@ export class Component
     {
         Component._statics.clear();
         Component._idCounter = 0;
-    }
-
-    /**
-     * Creates a typed key for primitive {@link Component} types.
-     * @param name
-     * @private
-     */
-    public static createComponentKey<T>(name: string): ComponentKey<T>
-    {
-        return Symbol(name) as ComponentKey<T>;
     }
 
     /**

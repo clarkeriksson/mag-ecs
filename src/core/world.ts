@@ -146,7 +146,7 @@ class World
      * Creates an entity in this {@link World} with the given components.
      * @param components
      */
-    public create(...components: TaggedComponent[]): number
+    public create(...components: ComponentInstance<any>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -171,15 +171,14 @@ class World
     /**
      * Adds a component to an entity, adjusts the entity signature, and updates relevant queries.
      * @param entity
-     * @param value
-     * @param type
+     * @param component
      */
-    public addComponent<T>(entity: number, { value, type }: TaggedComponent<T>): number
+    public addComponent(entity: number, component: ComponentInstance<any>): number
     {
-        Component.set(entity, value, type);
+        Component.set(entity, component);
 
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
-        this._entities[entity]?.set(Component.T(type).id, true);
+        this._entities[entity]?.set(Component.T(component.type).id, true);
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
 
         return entity;
@@ -205,13 +204,12 @@ class World
      * Adds a component to an entity without performing side effects.
      * Dangerous, use with caution when you plan on manually performing side effects.
      * @param entity
-     * @param value
-     * @param type
+     * @param component
      * @private
      */
-    private addComponentUnsafe<T>(entity: number, { value, type }: TaggedComponent<T>): number
+    private addComponentUnsafe<T>(entity: number, component: ComponentInstance<T>): number
     {
-        Component.set(entity, value, type);
+        Component.set(entity, component);
         return entity;
     }
 
@@ -236,12 +234,12 @@ class World
      * @param types
      * @param entity
      */
-    public get<T extends ComponentType[]>(types: T, entity: number): ComponentTuple<T>
+    public get<T extends any[]>(types: ComponentTypeTuple<T>, entity: number): ComponentInstanceTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
 
-        let result= [] as unknown as ComponentTuple<T>;
+        let result= [] as unknown as ComponentInstanceTuple<T>;
         for (const type of types)
         {
             result.push(Component.getUnchecked(entity, type))
@@ -271,7 +269,7 @@ class World
      * @param queryDefinition
      * @private
      */
-    private refreshQuery<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>): void
+    private refreshQuery<T extends ComponentType<any>[]>(queryDefinition: QueryDefinition<T>): void
     {
         const newQueryResult: number[] = [];
         this._queryCache.set(queryDefinition, newQueryResult);
@@ -290,7 +288,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public query<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentTuple<T>) => void): void
+    public query<T extends ComponentType<any>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
@@ -302,7 +300,7 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(...components as ComponentTuple<T>);
+            callback(...components as ComponentInstanceTuple<T>);
         }
     }
 
@@ -311,7 +309,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public entityQuery<T extends ComponentType[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentTuple<T>) => void): void
+    public entityQuery<T extends ComponentType<unknown>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCache.get(queryDefinition) ?? true)
         {
@@ -323,7 +321,7 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(entity, ...components as ComponentTuple<T>);
+            callback(entity, ...components as ComponentInstanceTuple<T>);
         }
     }
 }

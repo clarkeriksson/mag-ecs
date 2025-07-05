@@ -1,41 +1,55 @@
 export declare global
 {
     /**
-     * Class constructor type.
-     * Used for arguments or vars requiring the class object itself, not an instance.
-     * @type
+     * Non-nullish primitive types.
      */
-    declare type ClassConstructor<T = any> = new (...args: any[]) => T;
+    declare type ValueType = number | bigint | string | boolean | symbol;
 
     /**
-     * Primitive keyed type.
-     * Used for arguments of components that are tagged primitives.
-     * @type
+     * Component type with a class instance as the data value.
      */
-    declare type ComponentKey<T = any> = symbol & { __type?: T, __component: true };
+    declare type ClassComponentType<T> = {
+        name: string;
+        __isClassType: true;
+        new (...args: ConstructorParameters<T>): { value: InstanceType<T>, type: ClassComponentType<T> };
+    };
 
     /**
-     * System keyed type. Used to create a type-safe system access instead of strings.
+     * Component type with a non-nullish primitive as the data value.
      */
-    declare type SystemKey<T = any> = symbol & { __type?: T, __system: true };
+    declare type ValueComponentType<T> = {
+        name: string;
+        __isValueType: true;
+        new (arg: T): { value: T, type: ValueComponentType<T> };
+    };
+
+    declare type ComponentType<T> = T extends new (...args: any[]) => any ? ClassComponentType<T> : ValueComponentType<T>;
+
+    declare type ClassComponentInstance<T> = {
+        value: InstanceType<T>;
+        type: ClassComponentType<T>;
+    };
+
+    declare type ValueComponentInstance<T> = {
+        value: T;
+        type: ValueComponentType<T>;
+    };
+
+    declare type ComponentInstance<T> = T extends new (...args: any[]) => any ? ClassComponentInstance<T> : ValueComponentInstance<T>;
+
+    declare type ComponentTypeTuple<T> = { [K in keyof T]: T[K] extends new (...args: any[]) => any ? ClassComponentType<T[K]> : ValueComponentType<T[K]> };
+
+    declare type ComponentInstanceTuple<T> = { [K in keyof T]: T[K] extends new (...args: any[]) => any ? ClassComponentInstance<T[K]> : ValueComponentInstance<T[K]> };
 
     /**
-     * Component type definitions.
-     * @type
+     * True if T is a constructor type, false otherwise.
      */
-    declare type ComponentType<T = any> = ClassConstructor<T>;
+    declare type IsConstructorType<T> = T extends new (...args: any[]) => any ? true : false;
 
     /**
-     * Maps an array of component types to their data's types.
-     * @type
+     * True if T is a non-nullish primitive type, false otherwise.
      */
-    declare type ComponentTuple<T extends readonly ComponentType[]> = { [K in keyof T]: T[K] extends ComponentType<infer U> ? U : never };
-
-    /**
-     * Component value with it's associated type tag.
-     * @type
-     */
-    declare type TaggedComponent<T = any> = { value: T, type: ComponentType<T> };
+    declare type IsValueType<T> = T extends (number | bigint | string | boolean | symbol) ? true : false;
 
     /**
      * Interface representing a value bundled with an index.

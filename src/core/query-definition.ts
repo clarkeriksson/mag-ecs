@@ -1,5 +1,3 @@
-/// <reference types="../globals" />
-
 // noinspection JSUnusedGlobalSymbols
 
 import {Bitset} from "../util/bitset";

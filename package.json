@@ -18,7 +18,8 @@
     }
   },
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "build": "tsc && node add-globals.js"
   },
   "keywords": [],
   "author": "",

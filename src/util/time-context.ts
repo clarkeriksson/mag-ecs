@@ -1,6 +1,3 @@
-/// <reference types="../globals" />
-
-
 /**
  * Holds useful time values and utility functions for interpreting them.
  * @class

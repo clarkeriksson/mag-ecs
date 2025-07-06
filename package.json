@@ -1,9 +1,20 @@
 {
   "name": "mag-ecs",
   "version": "1.1.1",
+  "files": [
+    "dist/**/*",
+    "src/**/*.d.ts",
+    "*.d.ts"
+  ],
   "exports": {
-    "./*": "./dist/core/*.js",
-    "./util/*": "./dist/util/*.js"
+    "./*": {
+      "import": "./dist/core/*.js",
+      "types": "./dist/core/*.d.ts"
+    },
+    "./util/*": {
+      "import": "./dist/util/*.js",
+      "types": "./dist/util/*.d.ts"
+    }
   },
   "scripts": {
     "test": "vitest"

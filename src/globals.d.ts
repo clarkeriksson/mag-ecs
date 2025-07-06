@@ -29,7 +29,9 @@ export declare global
 
     declare type ComponentType<T, N extends string> = {
         name: N;
-        new (...args: any[]): ComponentInstance<T, N>
+        new (...args: any[]): ComponentInstance<T, N>;
+        __isValueType?: true;
+        __isClassType?: true;
     }
 
     //declare type ComponentType<T, N extends string = string> = T extends new (...args: any[]) => any ? ClassComponentType<T, N> : ValueComponentType<T, N>;
@@ -53,6 +55,12 @@ export declare global
     declare type ComponentInstanceTuple<T extends readonly ComponentType<any, string>[]> = {
         [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
             ? ComponentInstance<D, N>
+            : never;
+    }
+
+    declare type ComponentValueTuple<T extends readonly ComponentType<any, string>[]> = {
+        [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
+            ? ComponentInstance<D, N>['value']
             : never;
     }
 

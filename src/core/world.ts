@@ -146,7 +146,7 @@ class World
      * Creates an entity in this {@link World} with the given components.
      * @param components
      */
-    public create(...components: ComponentInstance<any>[]): number
+    public create(...components: ComponentInstance<any, string>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -173,7 +173,7 @@ class World
      * @param entity
      * @param component
      */
-    public addComponent(entity: number, component: ComponentInstance<any>): number
+    public addComponent(entity: number, component: ComponentInstance<any, string>): number
     {
         Component.set(entity, component);
 
@@ -189,7 +189,7 @@ class World
      * @param entity
      * @param type
      */
-    public removeComponent<T>(entity: number, type: ComponentType<T>): boolean
+    public removeComponent<T>(entity: number, type: ComponentType<T, string>): boolean
     {
         const removed = Component.removeComponent(entity, type);
 
@@ -207,7 +207,7 @@ class World
      * @param component
      * @private
      */
-    private addComponentUnsafe<T>(entity: number, component: ComponentInstance<T>): number
+    private addComponentUnsafe<T, N extends string>(entity: number, component: ComponentInstance<T, N>): number
     {
         Component.set(entity, component);
         return entity;
@@ -234,18 +234,26 @@ class World
      * @param types
      * @param entity
      */
-    public get<T extends any[]>(types: ComponentTypeTuple<T>, entity: number): ComponentInstanceTuple<T>
+    public get<T extends readonly ComponentType<any, string>[]>(types: Tupled<T>, entity: number): ComponentInstanceTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
 
-        let result= [] as unknown as ComponentInstanceTuple<T>;
-        for (const type of types)
+        let result= new Array(types.length);
+        for (let i = 0; i < types.length; i++)
         {
-            result.push(Component.getUnchecked(entity, type))
+            const type = types[i];
+            result[i] = Component.getUnchecked(entity, type);
         }
 
-        return result;
+        return result as ComponentInstanceTuple<T>;
+    }
+
+    public entityCount(def: QueryDefinition): number
+    {
+        let count = 0;
+        this.query(def, () => { count++; });
+        return count;
     }
 
     /**
@@ -269,7 +277,7 @@ class World
      * @param queryDefinition
      * @private
      */
-    private refreshQuery<T extends ComponentType<any>[]>(queryDefinition: QueryDefinition<T>): void
+    private refreshQuery<T extends ComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>): void
     {
         const newQueryResult: number[] = [];
         this._queryCache.set(queryDefinition, newQueryResult);
@@ -288,7 +296,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public query<T extends ComponentType<any>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentInstanceTuple<T>) => void): void
+    public query<T extends ComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
@@ -309,7 +317,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public entityQuery<T extends ComponentType<unknown>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
+    public entityQuery<T extends ComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCache.get(queryDefinition) ?? true)
         {

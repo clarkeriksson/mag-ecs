@@ -6,13 +6,13 @@ import { SparseSet } from "../util/sparse-set";
  * Pseudo-static class used to access and automatically manage component-type information.
  * @class
  */
-export class Component<CType>
+export class Component<C, I extends string>
 {
     /**
      * Holds the instances of {@link Component} for each {@link ComponentType}.
      * @private
      */
-    private static readonly _statics: Map<ComponentType<any>, Component<any>> = new Map();
+    private static readonly _statics: Map<ComponentType<any, string>, Component<any, string>> = new Map();
 
     /**
      * Counter for assigning unique Ids.
@@ -35,7 +35,7 @@ export class Component<CType>
      * The type of this {@link Component}.
      * @private
      */
-    public readonly type: ComponentType<CType>;
+    public readonly type: ComponentType<C, I>;
 
     /**
      * The {@link Bitset} representing this component-type.
@@ -53,7 +53,7 @@ export class Component<CType>
      * @param type
      * @private
      */
-    private constructor(type: ComponentType<CType>)
+    private constructor(type: ComponentType<C, I>)
     {
         this.type = type;
         this._id = Component._idCounter++;
@@ -70,30 +70,23 @@ export class Component<CType>
      * @param type
      * @constructor
      */
-    public static T<T>(type: ComponentType<T>): Component<T>
+    public static T<T, N extends string>(type: ComponentType<T, N>): Component<T, N>
     {
-        let $static = Component._statics.get(type);
+        let $static = Component._statics.get(type) as Component<T, N>;
         return $static ?? this.addUnchecked(type);
     }
 
     /**
-     * Ensures a {@link Component} instance has been created for the given type and returns it's {@link ComponentType}
-     * representation.
+     * Creates a class component type. Wraps a class constructor in another constructor that emits an object containing
+     * the component data, and it's associated type.
+     * @param ctor
      * @param name
      */
-    public static register<T>(name: string): ComponentType<T>
-    {
-        const type = Component.createComponentType<T>(name);
-        Component.T(type);
-
-        return type;
-    }
-
-    public static createClassComponent<T extends new (...args: any[]) => any>(ctor: T): ClassComponentType<T>
+    public static createClassComponent<T extends new (...args: any[]) => any, N extends string>(ctor: T, name: N): ClassComponentType<T, N>
     {
         class PseudoClass
         {
-            public static name: string = ctor.name;
+            public static name: N = name;
             public static __isClassType: true = true;
 
             public value: InstanceType<T>;
@@ -109,11 +102,16 @@ export class Component<CType>
         return PseudoClass;
     }
 
-    public static createValueComponent<T extends ValueType>(name: string): ValueComponentType<T>
+    /**
+     * Creates a value component type. Creates a custom constructor that emits an object containing the primitive
+     * component data, and it's associated type.
+     * @param name
+     */
+    public static createValueComponent<T extends ValueType, const N extends string>(name: N): ValueComponentType<T, N>
     {
         class PseudoValue
         {
-            public static name: string = name;
+            public static name: N = name;
             public static __isValueType: true = true;
 
             public value: T;
@@ -134,7 +132,7 @@ export class Component<CType>
      * Creates the {@link Component} instance if it does not exist.
      * @param type
      */
-    public static getSet<T>(type: ComponentType<T>): SparseSet<T>
+    public static getSet<T, N extends string>(type: ComponentType<T, N>): SparseSet<T>
     {
         return Component.T(type)._instances as SparseSet<T>;
     }
@@ -145,9 +143,10 @@ export class Component<CType>
      * @param index
      * @param type
      */
-    public static get<T>(index: number, type: ComponentType<T>): T | null
+    public static get<T, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N> | null
     {
-        return Component.getSet(type).get(index);
+        const value = Component.getSet(type).get(index);
+        return (value === null) ? null : { value, type };
     }
 
     /**
@@ -156,9 +155,10 @@ export class Component<CType>
      * @param index
      * @param type
      */
-    public static getUnchecked<T>(index: number, type: ComponentType<T>): T
+    public static getUnchecked<T, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N>
     {
-        return Component.getSet(type).getUnchecked(index);
+        const value = Component.getSet(type).getUnchecked(index);
+        return { value, type };
     }
 
     /**
@@ -168,7 +168,7 @@ export class Component<CType>
      * @param component
      * @param type
      */
-    public static set(index: number, component: ComponentInstance<any>): void
+    public static set(index: number, component: ComponentInstance<any, string>): void
     {
         Component.getSet(component.type).add(index, component.value);
     }
@@ -178,7 +178,7 @@ export class Component<CType>
      * @param index
      * @param type
      */
-    public static has<T>(index: number, type: ComponentType<T>): boolean
+    public static has<T, N extends string>(index: number, type: ComponentType<T, N>): boolean
     {
         return Component.getSet(type).has(index);
     }
@@ -202,9 +202,10 @@ export class Component<CType>
      * @param index
      * @param type
      */
-    public static removeComponent<T>(index: number, type: ComponentType<T>): T | null
+    public static removeComponent<T, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N> | null
     {
-        return Component.getSet(type).remove(index);
+        const value = Component.getSet(type).remove(index);
+        return (value === null) ? null : { value, type };
     }
 
     /**
@@ -213,7 +214,7 @@ export class Component<CType>
      * @param type
      * @private
      */
-    private static addUnchecked<T>(type: ComponentType<T>): Component<T>
+    private static addUnchecked<T, N extends string>(type: ComponentType<T, N>): Component<T, N>
     {
         return new Component(type);
     }
@@ -222,7 +223,7 @@ export class Component<CType>
      * Provides a unique {@link Bitset} from the provided component-types.
      * @param types
      */
-    public static bitsetFromTypes(...types: ComponentType<any>[]): Bitset
+    public static bitsetFromTypes(...types: ComponentType<any, string>[]): Bitset
     {
         const result = new Bitset();
         for (const type of types)
@@ -236,7 +237,7 @@ export class Component<CType>
      * Provides a unique {@link Bitset} from the provided tagged component instances.
      * @param components
      */
-    public static bitsetFromComponents<T extends ComponentInstance<any>[]>(...components: T): Bitset
+    public static bitsetFromComponents<T extends ComponentInstance<any, string>[]>(...components: T): Bitset
     {
         const result = new Bitset();
         for (let i = 0; i < components.length; i++)
@@ -250,7 +251,7 @@ export class Component<CType>
     /**
      * Gets all currently registered component types.
      */
-    public static getAllTypes(): ComponentType<any>[]
+    public static getAllTypes(): ComponentType<any, string>[]
     {
         return Array.from(Component._statics.keys());
     }
@@ -259,9 +260,9 @@ export class Component<CType>
      * Gets the {@link Component} instance for a given type.
      * @param type
      */
-    public static metadata<T>(type: ComponentType<T>): Component<T>| null
+    public static metadata<T, N extends string>(type: ComponentType<T, N>): Component<T, N> | null
     {
-        return Component._statics.get(type as any) ?? null;
+        return Component._statics.get(type as any) as Component<T, N> ?? null;
     }
 
     /**
@@ -271,22 +272,5 @@ export class Component<CType>
     {
         Component._statics.clear();
         Component._idCounter = 0;
-    }
-
-    /**
-     * Returns the {@link ComponentType} of created type T with the provided name.
-     * @param name
-     */
-    private static createComponentType<T>(name: string): ComponentType<T>
-    {
-        const pseudoConstructor = function(value?: T): T
-        {
-            return arguments.length > 0 ? value! : undefined as any;
-        } as any;
-
-        Object.defineProperty(pseudoConstructor, 'name', { value: name });
-        pseudoConstructor.__isPrimitiveType = true;
-
-        return pseudoConstructor as ComponentType<T>;
     }
 }

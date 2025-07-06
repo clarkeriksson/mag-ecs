@@ -6,7 +6,8 @@ describe("Component class", () =>
     it("should automatically create component type on first static access", () =>
     {
         Component.dispose();
-        const type = Component.T(PosTest);
+        const Position = Component.createClassComponent(PosTest, "Position");
+        const type = Component.T(Position);
         expect(type).toBeDefined();
     });
 });

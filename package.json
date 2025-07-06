@@ -1,25 +1,11 @@
 {
   "name": "mag-ecs",
   "version": "1.1.6",
-  "types": "src/globals.d.ts",
-  "files": [
-    "dist/**/*",
-    "src/**/*.d.ts",
-    "*.d.ts"
-  ],
-  "exports": {
-    "./*": {
-      "import": "./dist/core/*.js",
-      "types": "./dist/core/*.d.ts"
-    },
-    "./util/*": {
-      "import": "./dist/util/*.js",
-      "types": "./dist/util/*.d.ts"
-    }
-  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "test": "vitest",
-    "build": "tsc && node add-globals.js"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",

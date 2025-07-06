@@ -1,5 +1,66 @@
 // noinspection JSUnusedGlobalSymbols
 
+export type ClassConstructor<T = any> = new (...args: any[]) => T;
+
+export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
+
+/**
+ * Non-nullish primitive types.
+ */
+export type ValueType = number | bigint | string | boolean | symbol;
+
+/**
+ * Component type with a class instance as the data value.
+ */
+export type ClassComponentType<T extends ClassConstructor, N extends string> = {
+    name: N;
+    __isClassType: true;
+    new (...args: ConstructorParameters<T>): ClassComponentInstance<T, N>;
+};
+
+/**
+ * Component type with a non-nullish primitive as the data value.
+ */
+export type ValueComponentType<T, N extends string> = {
+    name: N;
+    __isValueType: true;
+    new (arg: T): ValueComponentInstance<T, N>;
+};
+
+export type ComponentType<T, N extends string> = {
+    name: N;
+    new (...args: any[]): ComponentInstance<T, N>;
+    __isValueType?: true;
+    __isClassType?: true;
+}
+
+export type ClassComponentInstance<T extends ClassConstructor, N extends string> = {
+    value: InstanceType<T>;
+    type: ClassComponentType<T, N>;
+};
+
+export type ValueComponentInstance<T, N extends string> = {
+    value: T;
+    type: ValueComponentType<T, N>;
+};
+
+export type ComponentInstance<T, N extends string> = {
+    value: T;
+    type: ComponentType<T, N>;
+}
+
+export type ComponentInstanceTuple<T extends readonly ComponentType<any, string>[]> = {
+    [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
+        ? ComponentInstance<D, N>
+        : never;
+}
+
+export type ComponentValueTuple<T extends readonly ComponentType<any, string>[]> = {
+    [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
+        ? ComponentInstance<D, N>['value']
+        : never;
+}
+
 import {Bitset} from "../util/bitset";
 import { SparseSet } from "../util/sparse-set";
 /**
@@ -166,7 +227,6 @@ export class Component<C, I extends string>
      * Creates the {@link Component} instance if it does not exist.
      * @param index
      * @param component
-     * @param type
      */
     public static set(index: number, component: ComponentInstance<any, string>): void
     {

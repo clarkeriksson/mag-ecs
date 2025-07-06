@@ -6,6 +6,8 @@ import {Bitset} from "../util/bitset";
 import {System} from "./system";
 import {TimeContext} from "../util/time-context";
 
+import type { ComponentInstance, ComponentType, Tupled, ComponentInstanceTuple } from "./component";
+
 /**
  * @class World
  * @summary A mag-ecs world. Informally represents what should be a (mostly) isolated ECS context.

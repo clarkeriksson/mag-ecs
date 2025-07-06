@@ -1,5 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 
+import { ComponentType } from "./component";
+
 import {Bitset} from "../util/bitset";
 import {Component} from "./component";
 

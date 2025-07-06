@@ -1,6 +1,16 @@
 // noinspection JSUnusedGlobalSymbols
 
 /**
+ * Interface representing a value bundled with an index.
+ * @type
+ */
+export interface IndexedValue<T>
+{
+    index: number;
+    value: T;
+}
+
+/**
  * A sparse set representation of a collection of objects.
  */
 export class SparseSet<T>

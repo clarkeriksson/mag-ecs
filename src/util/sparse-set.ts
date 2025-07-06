@@ -1,3 +1,6 @@
+/// <reference types="../globals" />
+
+
 // noinspection JSUnusedGlobalSymbols
 
 /**

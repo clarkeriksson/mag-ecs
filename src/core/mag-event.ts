@@ -1,3 +1,5 @@
+/// <reference types="../globals" />
+
 // noinspection JSUnusedGlobalSymbols
 /**
  * A utility type describing a function taking in event data of type T and returning void.

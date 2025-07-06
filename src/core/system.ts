@@ -1,3 +1,5 @@
+/// <reference types="../globals" />
+
 import { World } from "./world";
 import { TimeContext } from "../util/time-context";
 

@@ -1,6 +1,7 @@
 {
   "name": "mag-ecs",
   "version": "1.1.2",
+  "types": "src/globals.d.ts",
   "files": [
     "dist/**/*",
     "src/**/*.d.ts",

@@ -1,3 +1,5 @@
+/// <reference types="../globals" />
+
 // noinspection JSUnusedGlobalSymbols
 
 import {Component} from "./component";

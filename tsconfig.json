@@ -111,6 +111,7 @@
   "include": [
     "src/**/*",
     "src/*",
+    "src/util/*.ts"
   ],
   "exclude": [
     "node_modules",

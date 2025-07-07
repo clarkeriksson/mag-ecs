@@ -11,8 +11,6 @@ export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
  */
 export type ValueType = number | bigint | string | boolean | symbol;
 
-export type ValueTypeName = "number" | "bigint" | "string" | "boolean" | "symbol";
-
 /**
  * Component type with a class instance as the data value.
  */
@@ -198,19 +196,46 @@ export class Component<C, I extends string>
      * @param type
      * @param name
      */
-    public static createValueComponent<T extends ValueType, const N extends string>(type: ValueTypeName, name: N): ValueComponentType<T, N>
+    public static createValueComponent<T extends ValueType, const N extends string>(name: N): ValueComponentType<T, N>
     {
         class PseudoValue
         {
             public static name: N = name;
             public static __isValueType: true = true;
-            public static __isBooleanType: boolean = (type === "boolean");
+            public static __isBooleanType: boolean = false;
             public static __isTagType: boolean = false;
 
             public value: T;
             public type: typeof PseudoValue;
 
             constructor(arg: T)
+            {
+                this.value = arg;
+                this.type = PseudoValue;
+            }
+        }
+
+        return PseudoValue;
+    }
+
+    /**
+     * Creates a boolean component type. Technically a subset of the value component type, with a specific type of
+     * boolean. Optimized to use bitsets for this purpose.
+     * @param name
+     */
+    public static createBooleanComponent<const N extends string>(name: N): ValueComponentType<boolean, N>
+    {
+        class PseudoValue
+        {
+            public static name: N = name;
+            public static __isValueType: true = true;
+            public static __isBooleanType: boolean = true;
+            public static __isTagType: boolean = false;
+
+            public value: boolean;
+            public type: typeof PseudoValue;
+
+            constructor(arg: boolean)
             {
                 this.value = arg;
                 this.type = PseudoValue;

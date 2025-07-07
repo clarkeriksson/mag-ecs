@@ -17,6 +17,11 @@ export class Bitset
     private static _defaultSize: number = 64;
 
     /**
+     * Public access of the default size value.
+     */
+    public static get defaultSize(): number { return this._defaultSize; }
+
+    /**
      * The buffer representation of the integers storing the {@link Bitset}.
      * @private
      */
@@ -26,7 +31,7 @@ export class Bitset
      * The array representation of the {@link Bitset}, where "bits" are 1-byte unsigned integers internally.
      * @private
      */
-    private _bits: Uint8Array;
+    private _bytes: Uint8Array;
 
     /**
      * The length of the bitset.
@@ -40,6 +45,14 @@ export class Bitset
     public get size(): number
     {
         return this._size;
+    }
+
+    /**
+     * Provides the current last value of this {@link Bitset}.
+     */
+    public get last(): boolean
+    {
+        return this.get(this._size);
     }
 
     /**
@@ -63,7 +76,7 @@ export class Bitset
     public constructor()
     {
         this._buffer = new ArrayBuffer(Bitset._defaultSize);
-        this._bits = new Uint8Array(this._buffer);
+        this._bytes = new Uint8Array(this._buffer);
         this._size = 0;
         this._setCount = 0;
         this.clear();
@@ -77,7 +90,16 @@ export class Bitset
     public set(index: number, value: boolean): void
     {
         this.ensureCapacity(index + 1);
-        this._bits[index] = value ? 0xf : 0x0;
+
+        const byteIndex = (index / 8) | 0;
+        const bitIndex = index % 8;
+        const mask = 1 << bitIndex;
+
+        const wasSet = (this._bytes[byteIndex] & mask) !== 0;
+        this._setCount = (+value) - (+wasSet); // + signs are bool to num conversion
+
+        // Resets the bit, then sets it to the new value.
+        this._bytes[byteIndex] = (this._bytes[byteIndex] & ~mask) | (mask * (+value));
     }
 
     /**
@@ -85,9 +107,23 @@ export class Bitset
      * No bounds checking performed.
      * @param index
      */
-    public get (index: number): boolean
+    public get(index: number): boolean
     {
-        return this._bits[index] === 0xf;
+        const byteIndex = (index / 8) | 0;
+        const bitIndex = index % 8;
+        const mask = 1 << bitIndex;
+
+        return (this._bytes[byteIndex] & mask) !== 0;
+    }
+
+    public pop(): boolean
+    {
+        if (this._size <= 0) return false;
+
+        this.set(this._size - 1, false);
+        this._size -= 1;
+
+        return true;
     }
 
     /**
@@ -100,13 +136,15 @@ export class Bitset
         const maxLength = Math.max(this._size, other.size);
         this.ensureCapacity(maxLength);
 
-        for (let i = 0; i < maxLength; i++)
+        this._setCount = 0;
+
+        const maxByteIndex = ((maxLength / 8) | 0) + 1;
+        for (let i = 0; i < maxByteIndex; i++)
         {
-            const newValue = this._bits[i] & (other._bits[i] ?? 0x0);
+            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
+            this._bytes[i] &= otherByte;
 
-            this._setCount += (this._bits[i] === newValue) ? 0x0 : Math.sign(newValue - 1);
-
-            this._bits[i] = newValue;
+            this._setCount += this.countSetBitsInByte(this._bytes[i]);
         }
 
         return this;
@@ -122,13 +160,15 @@ export class Bitset
         const maxLength = Math.max(this.size, other.size);
         this.ensureCapacity(maxLength);
 
-        for (let i = 0; i < maxLength; i++)
+        this._setCount = 0;
+
+        const maxByteIndex = ((maxLength / 8) | 0) + 1;
+        for (let i = 0; i < maxByteIndex; i++)
         {
-            const newValue = this._bits[i] | (other._bits[i] ?? 0x0);
+            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
+            this._bytes[i] |= otherByte;
 
-            this._setCount += (this._bits[i] === newValue) ? 0x0 : Math.sign(newValue - 1);
-
-            this._bits[i] = newValue;
+            this._setCount += this.countSetBitsInByte(this._bytes[i]);
         }
 
         return this;
@@ -144,13 +184,15 @@ export class Bitset
         const maxLength = Math.max(this.size, other.size);
         this.ensureCapacity(maxLength);
 
-        for (let i = 0; i < maxLength; i++)
+        this._setCount = 0;
+
+        const maxByteIndex = ((maxLength / 8) | 0) + 1;
+        for (let i = 0; i < maxByteIndex; i++)
         {
-            const newValue = this._bits[i] ^ (other._bits[i] ?? 0x0);
+            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
+            this._bytes[i] ^= otherByte;
 
-            this._setCount += (this._bits[i] === newValue) ? 0x0 : Math.sign(newValue - 1);
-
-            this._bits[i] = newValue;
+            this._setCount += this.countSetBitsInByte(this._bytes[i]);
         }
 
         return this;
@@ -162,11 +204,18 @@ export class Bitset
      */
     public not(): Bitset
     {
-        // Iterations go until the internal size.
-        for (let i = 0; i < this._size; i++)
+        const maxByteIndex = ((this._size / 8) | 0) + 1;
+
+        for (let i = 0; i < maxByteIndex - 1; i++)
         {
-            this._bits[i] = ~this._bits[i];
+            this._bytes[i] = ~this._bytes[i];
         }
+
+        // Last byte needs to be handled separate.
+        const lastByteBitCount = this._size % 8;
+        const mask = (1 << lastByteBitCount) - 1;
+        this._bytes[maxByteIndex] = ~this._bytes[lastByteBitCount];
+        this._bytes[maxByteIndex] &= mask;
 
         this._setCount = this._size - this._setCount;
 
@@ -191,7 +240,6 @@ export class Bitset
             result.and(sets[i]);
         }
 
-        //console.log(result.toString());
         return result;
     }
 
@@ -288,7 +336,7 @@ export class Bitset
         let result = true;
         for (let i = 0; i < xorResult._size; i++)
         {
-            result = xorResult._bits[i] === 0x0;
+            result = xorResult._bytes[i] === 0x0;
             if (!result) break;
         }
 
@@ -296,11 +344,26 @@ export class Bitset
     }
 
     /**
+     * Counts the number of set bits in a byte. Uses Brian Kernighan's algorithm.
+     * @param byte
+     * @private
+     */
+    private countSetBitsInByte(byte: number): number
+    {
+        let count = 0;
+        while (byte) {
+            count++;
+            byte &= byte - 1; // Clear the lowest set bit
+        }
+        return count;
+    }
+
+    /**
      * Sets all bit values and the size to 0.
      */
     public clear(): void
     {
-        this._bits.fill(0x0);
+        this._bytes.fill(0x0);
         this._size = 0;
         this._setCount = 0;
     }
@@ -311,30 +374,32 @@ export class Bitset
     public reset(): void
     {
         this._buffer = new ArrayBuffer(Bitset._defaultSize);
-        this._bits = new Uint8Array(this._buffer);
+        this._bytes = new Uint8Array(this._buffer);
         this.clear();
     }
 
     /**
-     * Ensures this {@link Bitset} has at least the specified capacity in bytes.
-     * @param bytes
+     * Ensures this {@link Bitset} has at least the specified capacity in bits.
+     * @param bits
      * @private
      */
-    private ensureCapacity(bytes: number): void
+    private ensureCapacity(bits: number): void
     {
-        if (bytes > this._size) this._size = bytes;
-        if (this._buffer.byteLength >= bytes) return;
+        if (bits > this._size) this._size = bits;
 
-        const pow2Ceil = Math.ceil(Math.log2(bytes / this._buffer.byteLength));
+        const requiredBytes = ((bits / 8) | 0) + 1;
+        if (this._buffer.byteLength >= requiredBytes) return;
+
+        const pow2Ceil = Math.ceil(Math.log2(requiredBytes / this._buffer.byteLength));
         const newLength = this._buffer.byteLength * (2 ** pow2Ceil);
 
         const newBuffer = new ArrayBuffer(newLength);
         const newArray = new Uint8Array(newBuffer);
 
-        newArray.set(this._bits, 0);
+        newArray.set(this._bytes, 0);
 
         this._buffer = newBuffer;
-        this._bits = newArray;
+        this._bytes = newArray;
     }
 
     /**
@@ -346,8 +411,8 @@ export class Bitset
         let string = "";
         for (let i = this._size - 1; i >= 0; i--)
         {
-            string += (this._bits[i] === 0x0) ? "0" : "1";
+            string += this.get(i) ? "1" : "0";
         }
-        return string;
+        return string || "0";
     }
 }

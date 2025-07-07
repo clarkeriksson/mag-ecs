@@ -1,6 +1,18 @@
 // noinspection JSUnusedGlobalSymbols
 
 /**
+ * Interface describing sparse set class operations.
+ * @interface
+ */
+export interface ISparseSet<T>
+{
+    add(index: number, value: T): boolean;
+    remove(index: number): T | null;
+    get(index: number): T | null;
+    has(index: number): boolean;
+}
+
+/**
  * Interface representing a value bundled with an index.
  * @type
  */
@@ -13,7 +25,7 @@ export interface IndexedValue<T>
 /**
  * A sparse set representation of a collection of objects.
  */
-export class SparseSet<T>
+export class SparseSet<T> implements ISparseSet<T>
 {
     /**
      * The sparse array mapping external access index to internal dense array index.

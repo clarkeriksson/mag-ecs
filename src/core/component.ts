@@ -1,5 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 
+import { ISparseSet } from "../util/sparse-set";
+
 export type ClassConstructor<T = any> = new (...args: any[]) => T;
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
@@ -8,6 +10,8 @@ export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
  * Non-nullish primitive types.
  */
 export type ValueType = number | bigint | string | boolean | symbol;
+
+export type ValueTypeName = "number" | "bigint" | "string" | "boolean" | "symbol";
 
 /**
  * Component type with a class instance as the data value.
@@ -24,6 +28,8 @@ export type ClassComponentType<T extends ClassConstructor, N extends string> = {
 export type ValueComponentType<T, N extends string> = {
     name: N;
     __isValueType: true;
+    __isBooleanType: boolean;
+    __isTagType: boolean;
     new (arg: T): ValueComponentInstance<T, N>;
 };
 
@@ -31,6 +37,8 @@ export type ComponentType<T, N extends string> = {
     name: N;
     new (...args: any[]): ComponentInstance<T, N>;
     __isValueType?: true;
+    __isBooleanType?: boolean;
+    __isTagType?: boolean;
     __isClassType?: true;
 }
 
@@ -63,6 +71,8 @@ export type ComponentValueTuple<T extends readonly ComponentType<any, string>[]>
 
 import {Bitset} from "../util/bitset";
 import { SparseSet } from "../util/sparse-set";
+import {SparseBitSet} from "../util/sparse-bit-set";
+import {SparseTagSet} from "../util/sparse-tag-set";
 /**
  * Pseudo-static class used to access and automatically manage component-type information.
  * @class
@@ -107,7 +117,7 @@ export class Component<C, I extends string>
      * The instances of this component-type. Members of the class this {@link Component} represents.
      * @private
      */
-    private readonly _instances: SparseSet<any>;
+    private readonly _instances: ISparseSet<any>;
 
     /**
      * Creates an instance of {@link Component}.
@@ -120,7 +130,26 @@ export class Component<C, I extends string>
         this._id = Component._idCounter++;
         this.signature = new Bitset();
         this.signature.set(this._id, true);
-        this._instances = new SparseSet();
+
+        if (type.__isValueType)
+        {
+            if (type.__isBooleanType)
+            {
+                this._instances = new SparseBitSet();
+            }
+            else if (type.__isTagType)
+            {
+                this._instances = new SparseTagSet();
+            }
+            else
+            {
+                this._instances = new SparseSet();
+            }
+        }
+        else
+        {
+            this._instances = new SparseSet();
+        }
 
         Component._statics.set(type, this);
     }
@@ -166,19 +195,49 @@ export class Component<C, I extends string>
     /**
      * Creates a value component type. Creates a custom constructor that emits an object containing the primitive
      * component data, and it's associated type.
+     * @param type
      * @param name
      */
-    public static createValueComponent<T extends ValueType, const N extends string>(name: N): ValueComponentType<T, N>
+    public static createValueComponent<T extends ValueType, const N extends string>(type: ValueTypeName, name: N): ValueComponentType<T, N>
     {
         class PseudoValue
         {
             public static name: N = name;
             public static __isValueType: true = true;
+            public static __isBooleanType: boolean = (type === "boolean");
+            public static __isTagType: boolean = false;
 
             public value: T;
             public type: typeof PseudoValue;
 
             constructor(arg: T)
+            {
+                this.value = arg;
+                this.type = PseudoValue;
+            }
+        }
+
+        return PseudoValue;
+    }
+
+    /**
+     * Creates a tag component type. Technically a subset of the value component type, with a type of exclusively
+     * the boolean 'true' value. Optimized to use bitsets for this purpose.
+     * @param name
+     */
+    public static createTagComponent<const N extends string>(name: N): ValueComponentType<true, N>
+    {
+        class PseudoValue
+        {
+            public static name: N = name;
+            public static __isValueType: true = true;
+            public static __isBooleanType: boolean = false;
+            public static __isTagType: boolean = true;
+
+            public value: true;
+            public type: typeof PseudoValue;
+
+            constructor(arg: true = true)
             {
                 this.value = arg;
                 this.type = PseudoValue;

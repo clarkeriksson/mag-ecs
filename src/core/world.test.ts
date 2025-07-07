@@ -29,9 +29,9 @@ describe("World class", () =>
 
     const PositionComponent = Component.createClassComponent(Position, "Position");
     const VelocityComponent = Component.createClassComponent(Velocity, "Velocity");
-    const NameComponent = Component.createValueComponent<string, "NameComponent">("NameComponent");
-    const AliasComponent = Component.createValueComponent<string, "AliasComponent">("AliasComponent");
-    const AgeComponent = Component.createValueComponent<number, "AgeComponent">("AgeComponent");
+    const NameComponent = Component.createValueComponent<string, "NameComponent">("string", "NameComponent");
+    const AliasComponent = Component.createValueComponent<string, "AliasComponent">("string", "AliasComponent");
+    const AgeComponent = Component.createValueComponent<number, "AgeComponent">("number", "AgeComponent");
 
     const world = new World();
 

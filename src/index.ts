@@ -5,6 +5,8 @@ export { MagEvent } from './core/mag-event';
 export { QueryDefinition } from './core/query-definition';
 export { Bitset } from './util/bitset';
 export { SparseSet } from './util/sparse-set';
+export { SparseBitSet } from './util/sparse-bit-set';
+export { SparseTagSet } from './util/sparse-tag-set';
 export { TimeContext } from './util/time-context';
 
 export type {

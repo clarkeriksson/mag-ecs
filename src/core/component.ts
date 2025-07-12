@@ -4,7 +4,17 @@ import { ISparseSet } from "../util/sparse-set";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
+type DeepTupled<T> = { [K in keyof T]: T[K] extends object ? DeepTupled<T[K]> : T[K] };
+
 export type Constructor<T = unknown> = { new(...args: any[]): T };
+
+// 2. Custom DeepReadonly utility type
+type DeepReadonly<T> = {
+    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+};
+
+type Debug<T> = T;
+type Test = DeepTupled<DeepReadonly<{name: string, obj: { num: number, bool: boolean }}>>;
 
 /**
  * Non-nullish primitive types.
@@ -126,6 +136,11 @@ export class Component<C extends Constructor | Value, I extends string>
      */
     private readonly _instances: ISparseSet<any>;
 
+    /**
+     * Component wrapper instance pool. If object pooling is not used, then due to how ECS works a ton of garbage
+     * would be created constantly.
+     * @private
+     */
     private readonly _instancePool: ComponentInstance<C, I>[];
 
     /**
@@ -294,9 +309,9 @@ export class Component<C extends Constructor | Value, I extends string>
      * Creates the {@link Component} instance if it does not exist.
      * @param type
      */
-    public static getSet<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): ISparseSet<T extends Constructor ? InstanceType<T> : Value>
+    public static getSet<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): ISparseSet<T extends Constructor ? InstanceType<T> : T>
     {
-        return Component.T(type)._instances as ISparseSet<T extends Constructor ? InstanceType<T> : Value>;
+        return Component.T(type)._instances as ISparseSet<T extends Constructor ? InstanceType<T> : T>;
     }
 
     /**
@@ -305,13 +320,10 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static get<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | {
-        value: T extends Constructor ? InstanceType<T> : Value;
-        type: T extends Constructor ? ClassComponentType<T, N> : (T extends Value ? ValueComponentType<T, N> : never)
-    }
+    public static get<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
     {
         const value = Component.getSet(type).get(index);
-        return (value === null) ? null : { value, type };
+        return (value === null) ? null : Component.createLiteralInstance(value, type);
     }
 
     /**
@@ -320,10 +332,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static getUnchecked<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): {
-        value: T extends Constructor ? InstanceType<T> : Value;
-        type: T extends Constructor ? ClassComponentType<T, N> : (T extends Value ? ValueComponentType<T, N> : never)
-    }
+    public static getUnchecked<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N>
     {
         const value = Component.getSet(type).getUnchecked(index);
         return Component.rentInstance(type, value);
@@ -369,13 +378,10 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static removeComponent<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | {
-        value: T extends Constructor ? InstanceType<T> : Value;
-        type: T extends Constructor ? ClassComponentType<T, N> : (T extends Value ? ValueComponentType<T, N> : never)
-    }
+    public static removeComponent<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
     {
         const value = Component.getSet(type).remove(index);
-        return (value === null) ? null : { value, type };
+        return (value === null) ? null : Component.createLiteralInstance(value, type);
     }
 
     /**
@@ -444,16 +450,16 @@ export class Component<C extends Constructor | Value, I extends string>
         Component._idCounter = 0;
     }
 
-    private static rentInstance<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>, value: T extends Constructor ? InstanceType<T> : Value): {
-        value: T extends Constructor ? InstanceType<T> : Value;
-        type: T extends Constructor ? ClassComponentType<T, N> : (T extends Value ? ValueComponentType<T, N> : never);
-    }
+    /**
+     * Rents a component wrapper instance.
+     * @param type
+     * @param value
+     * @private
+     */
+    private static rentInstance<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>, value: T extends Constructor ? InstanceType<T> : T): ComponentInstance<T, N>
     {
         const component = Component.T(type);
-        let rented = (component._instancePool.pop() ?? { value, type }) as {
-            value: T extends Constructor ? InstanceType<T> : Value;
-            type: T extends Constructor ? ClassComponentType<T, N> : (T extends Value ? ValueComponentType<T, N> : never)
-        };
+        let rented = component._instancePool.pop() ?? Component.createLiteralInstance(value, type);
 
         rented.value = value;
         rented.type = type;
@@ -461,5 +467,41 @@ export class Component<C extends Constructor | Value, I extends string>
         return rented;
     }
 
+    /**
+     * Returns a rented component wrapper instance to its pool.
+     * @param instance
+     * @private
+     */
+    public static returnInstance<T extends Constructor | Value, N extends string>(instance: ComponentInstance<T, N>): void
+    {
+        const component = Component.T(instance.type);
+        component._instancePool.push(instance);
+    }
 
+    /**
+     * Returns many rented component wrapper instances to their pools.
+     * @param instances
+     * @private
+     */
+    public static returnInstances<T extends ComponentInstance<any, string>[]>(...instances: T): void
+    {
+        for (const instance of instances)
+        {
+            Component.returnInstance(instance);
+        }
+    }
+
+    /**
+     * Creates an object literal of the appropriate component instance type.
+     * @param value
+     * @param type
+     * @private
+     */
+    private static createLiteralInstance<T extends Constructor | Value, N extends string>(
+        value: T extends Constructor ? InstanceType<T> : T,
+        type: T extends Constructor ? ClassComponentType<T, N> : T extends Value ? ValueComponentType<T, N> : never,
+    ) : ComponentInstance<T, N>
+    {
+        return { value, type } as ComponentInstance<T, N>;
+    }
 }

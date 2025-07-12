@@ -62,6 +62,12 @@ export class SparseBitSet implements ISparseSet<boolean>
         return this._dense.get(denseIndex);
     }
 
+    public getUnchecked(index: number): boolean
+    {
+        const denseIndex = this._sparse[index]!;
+        return this._dense.get(denseIndex);
+    }
+
     public has(index: number): boolean
     {
         return this._sparse[index] !== undefined;

@@ -9,6 +9,7 @@ export interface ISparseSet<T>
     add(index: number, value: T): boolean;
     remove(index: number): T | null;
     get(index: number): T | null;
+    getUnchecked(index: number): T;
     has(index: number): boolean;
 }
 

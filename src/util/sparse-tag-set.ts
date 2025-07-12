@@ -33,6 +33,11 @@ export class SparseTagSet implements ISparseSet<true>
         return this._sparse.has(index) || null;
     }
 
+    public getUnchecked(_: number): true
+    {
+        return true;
+    }
+
     public has(index: number): boolean
     {
         return this._sparse.has(index);

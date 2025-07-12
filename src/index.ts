@@ -20,7 +20,7 @@ export type {
     ValueComponentInstance,
     ComponentInstanceTuple,
     ComponentValueTuple,
-    ValueType,
+    Value,
 } from './core/component';
 
 export type {

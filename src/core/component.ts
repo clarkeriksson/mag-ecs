@@ -4,97 +4,61 @@ import { ISparseSet } from "../util/sparse-set";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
-type DeepTupled<T> = { [K in keyof T]: T[K] extends object ? DeepTupled<T[K]> : T[K] };
-
 export type Constructor<T = unknown> = { new(...args: any[]): T };
-
-// 2. Custom DeepReadonly utility type
-type DeepReadonly<T> = {
-    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
-};
-
-type Debug<T> = T;
-type Test = DeepTupled<DeepReadonly<{name: string, obj: { num: number, bool: boolean }}>>;
 
 /**
  * Non-nullish primitive types.
  */
-export type Value = number | bigint | string | boolean | symbol;
+export type ValuePrimitive = number | bigint | string | boolean | symbol;
 
-export type DataType<T extends Constructor | Value> =
-    T extends Constructor ? InstanceType<T> : T;
+export type ValueObject = {
+    [key: string]: ValueObject | ValuePrimitive;
+}
 
-/**
- * Component type with a class instance as the data value.
- */
-export type ClassComponentType<T extends Constructor, N extends string> = {
-    name: N;
-    __isClassType: true;
-    __isValueType: false;
-    __isBooleanType: false;
-    __isTagType: false;
-    new (...args: ConstructorParameters<T>): ClassComponentInstance<T, N>;
-};
+export type Value = number | bigint | string | boolean | symbol | ValueObject;
 
 /**
  * Component type with a non-nullish primitive as the data value.
  */
-export type ValueComponentType<T extends Value, N extends string> = {
+export type ComponentType<T extends Value, N extends string> = {
     name: N;
-    __isClassType: false;
-    __isValueType: true;
     __isBooleanType: boolean;
     __isTagType: boolean;
-    new (arg: T): ValueComponentInstance<T, N>;
+    new (arg: T): ComponentInstance<T, N>;
 };
 
-export type ComponentType<T extends Constructor | Value, N extends string> =
-    T extends Constructor
-        ? ClassComponentType<T, N>
-        : T extends Value
-        ? ValueComponentType<T, N>
-        : never;
-
-export type ClassComponentInstance<T extends Constructor, N extends string> = {
-    value: InstanceType<T>;
-    type: ClassComponentType<T, N>;
-};
-
-export type ValueComponentInstance<T extends Value, N extends string> = {
+export type ComponentInstance<T extends Value, N extends string> = {
     value: T;
-    type: ValueComponentType<T, N>;
+    type: ComponentType<T, N>;
 };
 
-export type ComponentInstance<T extends Constructor | Value, N extends string> =
-    T extends Constructor
-        ? ClassComponentInstance<T, N>
-        : T extends Value
-        ? ValueComponentInstance<T, N>
-        : never;
-
-export type ComponentInstanceTuple<T extends readonly ComponentType<Constructor | Value, string>[]> = {
-    [K in keyof T]: T[K] extends ClassComponentType<infer D, infer N>
-        ? ClassComponentInstance<D, N>
-        : T[K] extends ValueComponentType<infer V, infer VN>
-            ? ValueComponentInstance<V, VN>
-            : never;
+export type ComponentTypeTuple<T extends readonly ComponentType<Value, string>[]> = {
+    [K in keyof T]: T[K] extends ComponentType<infer D, infer N> ? ComponentType<D, N> : never;
 }
 
-export type ComponentValueTuple<T extends readonly ComponentType<Constructor | Value, string>[]> = {
+export type ComponentInstanceTuple<T extends readonly ComponentType<Value, string>[]> = {
+    [K in keyof T]: T[K] extends ComponentType<infer D, infer N> ? ComponentInstance<D, N> : never;
+}
+
+export type ComponentValueTuple<T extends readonly ComponentType<Value, string>[]> = {
     [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
         ? ComponentInstance<D, N>['value']
         : never;
 }
 
-import {Bitset} from "../util/bitset";
+export type ComponentSchema = {
+    [key: string]: ComponentSchema | ComponentType<Value, string>;
+}
+
+import { Bitset } from "../util/bitset";
 import { SparseSet } from "../util/sparse-set";
-import {SparseBitSet} from "../util/sparse-bit-set";
-import {SparseTagSet} from "../util/sparse-tag-set";
+import { SparseBitSet } from "../util/sparse-bit-set";
+import { SparseTagSet } from "../util/sparse-tag-set";
 /**
  * Pseudo-static class used to access and automatically manage component-type information.
  * @class
  */
-export class Component<C extends Constructor | Value, I extends string>
+export class Component<C extends Value, I extends string>
 {
     /**
      * Holds the instances of {@link Component} for each {@link ComponentType}.
@@ -155,20 +119,13 @@ export class Component<C extends Constructor | Value, I extends string>
         this.signature = new Bitset();
         this.signature.set(this._id, true);
 
-        if (type.__isValueType)
+        if (type.__isBooleanType)
         {
-            if (type.__isBooleanType)
-            {
-                this._instances = new SparseBitSet();
-            }
-            else if (type.__isTagType)
-            {
-                this._instances = new SparseTagSet();
-            }
-            else
-            {
-                this._instances = new SparseSet();
-            }
+            this._instances = new SparseBitSet();
+        }
+        else if (type.__isTagType)
+        {
+            this._instances = new SparseTagSet();
         }
         else
         {
@@ -185,39 +142,10 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param type
      * @constructor
      */
-    public static T<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): Component<T, N>
+    public static T<T extends Value, N extends string>(type: ComponentType<T, N>): Component<T, N>
     {
         let $static = Component._statics.get(type);
         return ($static ?? this.addUnchecked(type)) as Component<T, N>;
-    }
-
-    /**
-     * Creates a class component type. Wraps a class constructor in another constructor that emits an object containing
-     * the component data, and it's associated type.
-     * @param ctor
-     * @param name
-     */
-    public static createClassComponent<T extends Constructor<any>, N extends string>(ctor: T, name: N): ClassComponentType<T, N>
-    {
-        class PseudoClass
-        {
-            public static name: N = name;
-            public static __isClassType: true = true;
-            public static __isValueType: false = false;
-            public static __isBooleanType: false = false;
-            public static __isTagType: false = false;
-
-            public value: InstanceType<T>;
-            public type: typeof PseudoClass;
-
-            constructor(...args: ConstructorParameters<T>)
-            {
-                this.value = new ctor(...args);
-                this.type = PseudoClass;
-            }
-        }
-
-        return PseudoClass;
     }
 
     /**
@@ -225,7 +153,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * component data, and it's associated type.
      * @param name
      */
-    public static createValueComponent<T extends Value, const N extends string>(name: N): ValueComponentType<T, N>
+    public static createComponent<T extends Value, const N extends string>(name: N): ComponentType<T, N>
     {
         class PseudoValue
         {
@@ -253,7 +181,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * boolean. Optimized to use bitsets for this purpose.
      * @param name
      */
-    public static createBooleanComponent<const N extends string>(name: N): ValueComponentType<boolean, N>
+    public static createBooleanComponent<const N extends string>(name: N): ComponentType<boolean, N>
     {
         class PseudoValue
         {
@@ -281,7 +209,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * the boolean 'true' value. Optimized to use bitsets for this purpose.
      * @param name
      */
-    public static createTagComponent<const N extends string>(name: N): ValueComponentType<true, N>
+    public static createTagComponent<const N extends string>(name: N): ComponentType<true, N>
     {
         class PseudoValue
         {
@@ -309,9 +237,9 @@ export class Component<C extends Constructor | Value, I extends string>
      * Creates the {@link Component} instance if it does not exist.
      * @param type
      */
-    public static getSet<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): ISparseSet<T extends Constructor ? InstanceType<T> : T>
+    public static getSet<T extends Value, N extends string>(type: ComponentType<T, N>): ISparseSet<T>
     {
-        return Component.T(type)._instances as ISparseSet<T extends Constructor ? InstanceType<T> : T>;
+        return Component.T(type)._instances as ISparseSet<T>;
     }
 
     /**
@@ -320,7 +248,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static get<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
+    public static get<T extends Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
     {
         const value = Component.getSet(type).get(index);
         return (value === null) ? null : Component.createLiteralInstance(value, type);
@@ -332,7 +260,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static getUnchecked<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N>
+    public static getUnchecked<T extends Value, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N>
     {
         const value = Component.getSet(type).getUnchecked(index);
         return Component.rentInstance(type, value);
@@ -354,7 +282,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static has<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): boolean
+    public static has<T extends Value, N extends string>(index: number, type: ComponentType<T, N>): boolean
     {
         return Component.getSet(type).has(index);
     }
@@ -378,7 +306,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param index
      * @param type
      */
-    public static removeComponent<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
+    public static removeComponent<T extends Value, N extends string>(index: number, type: ComponentType<T, N>): null | ComponentInstance<T, N>
     {
         const value = Component.getSet(type).remove(index);
         return (value === null) ? null : Component.createLiteralInstance(value, type);
@@ -390,7 +318,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param type
      * @private
      */
-    private static addUnchecked<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): Component<T, N>
+    private static addUnchecked<T extends Value, N extends string>(type: ComponentType<T, N>): Component<T, N>
     {
         return new Component(type);
     }
@@ -436,7 +364,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * Gets the {@link Component} instance for a given type.
      * @param type
      */
-    public static metadata<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>): Component<T, N> | null
+    public static metadata<T extends Value, N extends string>(type: ComponentType<T, N>): Component<T, N> | null
     {
         return Component._statics.get(type as any) as Component<T, N> ?? null;
     }
@@ -456,7 +384,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param value
      * @private
      */
-    private static rentInstance<T extends Constructor | Value, N extends string>(type: ComponentType<T, N>, value: T extends Constructor ? InstanceType<T> : T): ComponentInstance<T, N>
+    private static rentInstance<T extends Value, N extends string>(type: ComponentType<T, N>, value: T): ComponentInstance<T, N>
     {
         const component = Component.T(type);
         let rented = component._instancePool.pop() ?? Component.createLiteralInstance(value, type);
@@ -472,7 +400,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param instance
      * @private
      */
-    public static returnInstance<T extends Constructor | Value, N extends string>(instance: ComponentInstance<T, N>): void
+    public static returnInstance<T extends Value, N extends string>(instance: ComponentInstance<T, N>): void
     {
         const component = Component.T(instance.type);
         component._instancePool.push(instance);
@@ -497,11 +425,70 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param type
      * @private
      */
-    private static createLiteralInstance<T extends Constructor | Value, N extends string>(
-        value: T extends Constructor ? InstanceType<T> : T,
-        type: T extends Constructor ? ClassComponentType<T, N> : T extends Value ? ValueComponentType<T, N> : never,
+    private static createLiteralInstance<T extends Value, N extends string>(
+        value: T,
+        type: ComponentType<T, N>
     ) : ComponentInstance<T, N>
     {
         return { value, type } as ComponentInstance<T, N>;
     }
 }
+
+const VALUE_TYPES = ['string', 'number', 'boolean', 'bigint', 'symbol'] as const;
+type ValueTypeString = typeof VALUE_TYPES[number];
+
+type ValueTypeMap = {
+    string: string;
+    number: number;
+    boolean: boolean;
+    bigint: bigint;
+    symbol: symbol;
+}
+
+interface FieldDefinition<T extends ValueTypeString> {
+    type: T;
+}
+
+type SchemaDefinition = {
+    [key: string]: FieldDefinition<ValueTypeString> | SchemaDefinition;
+}
+
+type InferSchemaType<T extends SchemaDefinition> = {
+    [K in keyof T]: T[K] extends FieldDefinition<infer U>
+        ? ValueTypeMap[U]
+        : T[K] extends SchemaDefinition
+            ? InferSchemaType<T[K]>
+            : never;
+}
+
+export class SchemaBuilder
+{
+    private _schema: SchemaDefinition;
+
+    public constructor()
+    {
+        this._schema = {};
+    }
+
+    public field<N extends string, T extends ValueTypeString>(name: N, type: T): SchemaBuilder
+    {
+        this._schema[name] = {
+            type
+        }
+        return this;
+    }
+
+    public object<N extends string, T extends SchemaDefinition>(name: N, type: T): SchemaBuilder
+    {
+        this._schema[name] = {
+            type
+        }
+        return this;
+    }
+}
+
+const builder = new SchemaBuilder();
+
+const schema = builder
+    .field("name", "string")
+    .field("age", "number");

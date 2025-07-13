@@ -11,13 +11,9 @@ export { TimeContext } from './util/time-context';
 
 export type {
     Tupled,
-    ClassConstructor,
+    Constructor,
     ComponentType,
-    ClassComponentType,
-    ValueComponentType,
     ComponentInstance,
-    ClassComponentInstance,
-    ValueComponentInstance,
     ComponentInstanceTuple,
     ComponentValueTuple,
     Value,

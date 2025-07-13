@@ -6,7 +6,7 @@ import {Bitset} from "../util/bitset";
 import {System} from "./system";
 import {TimeContext} from "../util/time-context";
 
-import type { ComponentInstance, ComponentType, Tupled, ComponentInstanceTuple, Constructor, Value } from "./component";
+import type { ComponentInstance, ComponentType, Tupled, ComponentInstanceTuple, ComponentTypeTuple, Constructor, Value } from "./component";
 
 /**
  * @class World
@@ -148,7 +148,7 @@ class World
      * Creates an entity in this {@link World} with the given components.
      * @param components
      */
-    public create(...components: ComponentInstance<Constructor | Value, string>[]): number
+    public create(...components: ComponentInstance<any, string>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -175,7 +175,7 @@ class World
      * @param entity
      * @param component
      */
-    public addComponent<T extends Constructor | Value>(entity: number, component: ComponentInstance<T, string>): number
+    public addComponent<T extends Value>(entity: number, component: ComponentInstance<T, string>): number
     {
         Component.set(entity, component);
 
@@ -191,7 +191,7 @@ class World
      * @param entity
      * @param type
      */
-    public removeComponent<T extends Constructor | Value>(entity: number, type: ComponentType<T, string>): boolean
+    public removeComponent<T extends Value>(entity: number, type: ComponentType<T, string>): boolean
     {
         const removed = Component.removeComponent(entity, type);
 
@@ -209,7 +209,7 @@ class World
      * @param component
      * @private
      */
-    private addComponentUnsafe<T extends Constructor | Value, N extends string>(entity: number, component: ComponentInstance<T, N>): number
+    private addComponentUnsafe<T extends Value, N extends string>(entity: number, component: ComponentInstance<T, N>): number
     {
         Component.set(entity, component);
         return entity;
@@ -236,7 +236,7 @@ class World
      * @param types
      * @param entity
      */
-    public get<T extends readonly ComponentType<Constructor | Value, string>[]>(types: Tupled<T>, entity: number): ComponentInstanceTuple<T>
+    public get<T extends ComponentType<any, string>[]>(types: Tupled<T>, entity: number): ComponentInstanceTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();

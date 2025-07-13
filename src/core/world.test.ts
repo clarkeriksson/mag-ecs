@@ -27,37 +27,45 @@ describe("World class", () =>
         }
     }
 
-    const PositionComponent = Component.createClassComponent(Position, "Position");
-    const VelocityComponent = Component.createClassComponent(Velocity, "Velocity");
-    const NameComponent = Component.createValueComponent<string, "NameComponent">("NameComponent");
-    const AliasComponent = Component.createValueComponent<string, "AliasComponent">( "AliasComponent");
-    const AgeComponent = Component.createValueComponent<number, "AgeComponent">("AgeComponent");
+    const NameComponent = Component.createComponent<string, "NameComponent">("NameComponent");
+    const AliasComponent = Component.createComponent<string, "AliasComponent">( "AliasComponent");
+    const AgeComponent = Component.createComponent<number, "AgeComponent">("AgeComponent");
+    const VolumeComponent = Component.createComponent<boolean, "VolumeComponent">("VolumeComponent");
+
+    const TestComponent = Component.createComponent<{ name: string, alias: string }, "TestComponent">("TestComponent");
+
+    const queryTemplate =
+        {
+            animal:
+                {
+                    age: AgeComponent,
+                    name: NameComponent,
+                    alias: AliasComponent,
+                } as const,
+            volume: VolumeComponent,
+        } as const;
 
     const world = new World();
 
     it("creates new entity with accessible components", () =>
     {
-        const pos = new PositionComponent(1, 2);
-        const vel = new VelocityComponent(3, 4);
         const name = new NameComponent("TestName");
+        const alias = new AliasComponent("Alias");
+        const test = new TestComponent({ name: "Clark", alias: "The Shark" });
         //const age = new AgeComponent(10);
 
-        const entity = world.create(pos, vel, name);
+        const entity = world.create(name);
 
-        const desc = new QueryDefinition().withOnly(PositionComponent, VelocityComponent, NameComponent);
+        const desc = new QueryDefinition().withOnly(NameComponent, AliasComponent, TestComponent);
 
         const entityCount = world.entityCount(desc);
 
         expect(entityCount).equals(1);
 
-        const [pos1, vel1, name1] = world.get([PositionComponent, VelocityComponent, NameComponent], entity);
+        const [name1, alias1, test1] = world.get([NameComponent, AliasComponent, TestComponent], entity);
 
-        world.query(desc, (p, v, n) => {});
+        world.query(desc, (p) => {});
 
-        expect(pos1.value).eq(pos.value);
-        expect(pos1.type).eq(pos.type);
-        expect(vel1.value).eq(vel.value);
-        expect(vel1.type).eq(vel.type);
         expect(name1.value).eq(name.value);
         expect(name1.type).eq(name1.type);
     })

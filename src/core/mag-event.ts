@@ -1,6 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { type ClassConstructor } from "./component";
+import { type Constructor } from "./component";
 
 /**
  * A utility type describing a function taking in event data of type T and returning void.
@@ -17,7 +17,7 @@ export class MagEvent
      * Holds the instances of {@link MagEvent} for each {@link ClassConstructor}.
      * @private
      */
-    private static readonly _statics: Map<ClassConstructor, MagEvent> = new Map();
+    private static readonly _statics: Map<Constructor, MagEvent> = new Map();
 
     /**
      * Holds the user-registered event run categories in a static array.
@@ -40,7 +40,7 @@ export class MagEvent
      * The class constructor of the event-type;
      * @private
      */
-    private readonly _ctor: ClassConstructor;
+    private readonly _ctor: Constructor;
 
     /**
      * Holds events for this event-type as an array of typed data.
@@ -66,7 +66,7 @@ export class MagEvent
      * @param id
      * @private
      */
-    private constructor(ctor: ClassConstructor, id: number)
+    private constructor(ctor: Constructor, id: number)
     {
         this._ctor = ctor;
         this._id = id;
@@ -104,7 +104,7 @@ export class MagEvent
      * @param ctor
      * @constructor
      */
-    public static T(ctor: ClassConstructor): MagEvent
+    public static T(ctor: Constructor): MagEvent
     {
         let $static = MagEvent._statics.get(ctor);
         return $static ?? this.addUnchecked(ctor);
@@ -116,7 +116,7 @@ export class MagEvent
      * @param ctor
      * @private
      */
-    private static addUnchecked(ctor: ClassConstructor): MagEvent
+    private static addUnchecked(ctor: Constructor): MagEvent
     {
         const id = this._statics.size;
 
@@ -133,7 +133,7 @@ export class MagEvent
      * @param ctor
      * @param event
      */
-    public static emit<T>(ctor: ClassConstructor<T>, event: T): boolean
+    public static emit<T>(ctor: Constructor<T>, event: T): boolean
     {
         const magEvent = MagEvent.T(ctor);
 
@@ -193,7 +193,7 @@ export class MagEvent
      * @param listener
      * @param group
      */
-    public static register<T>(ctor: ClassConstructor<T>, listener: MagEventListener<T>, group: string = "immediate"): boolean
+    public static register<T>(ctor: Constructor<T>, listener: MagEventListener<T>, group: string = "immediate"): boolean
     {
         const instance = MagEvent.T(ctor);
 

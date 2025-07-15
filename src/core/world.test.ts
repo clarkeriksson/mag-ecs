@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { World } from "./world";
 import {Component} from "./component";
 import {QueryDefinition} from "./query-definition";
+import {SparseObjectSet} from "../util/sparse-object-set";
 
 describe("World class", () =>
 {
@@ -9,10 +10,12 @@ describe("World class", () =>
     {
         public x: number;
         public y: number;
+        public date: Function;
         constructor(x: number, y: number)
         {
             this.x = x;
             this.y = y;
+            this.date = () => {};
         }
     }
 
@@ -32,6 +35,7 @@ describe("World class", () =>
     const NameComponent = Component.createValueComponent<string, "NameComponent">("NameComponent");
     const AliasComponent = Component.createValueComponent<string, "AliasComponent">( "AliasComponent");
     const AgeComponent = Component.createValueComponent<number, "AgeComponent">("AgeComponent");
+    const ListComponent = Component.createValueComponent<number[], "ListComponent">("ListComponent");
 
     const world = new World();
 
@@ -40,19 +44,20 @@ describe("World class", () =>
         const pos = new PositionComponent(1, 2);
         const vel = new VelocityComponent(3, 4);
         const name = new NameComponent("TestName");
+        const list = new ListComponent([1, 4]);
         //const age = new AgeComponent(10);
 
         const entity = world.create(pos, vel, name);
 
-        const desc = new QueryDefinition().withOnly(PositionComponent, VelocityComponent, NameComponent);
+        const desc = new QueryDefinition().withOnly(PositionComponent, VelocityComponent, NameComponent, ListComponent);
 
         const entityCount = world.entityCount(desc);
 
         expect(entityCount).equals(1);
 
-        const [pos1, vel1, name1] = world.get([PositionComponent, VelocityComponent, NameComponent], entity);
-
-        world.query(desc, (p, v, n) => {});
+        const [pos1, vel1, name1, list1] = world.get([PositionComponent, VelocityComponent, NameComponent, ListComponent], entity);
+        
+        world.query(desc, (p, v, n, l) => {});
 
         expect(pos1.value).eq(pos.value);
         expect(pos1.type).eq(pos.type);

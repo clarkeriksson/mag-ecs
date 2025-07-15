@@ -1,5 +1,12 @@
 // noinspection JSUnusedGlobalSymbols
 
+export type DeepReadonly<T> =
+    T extends Array<infer U> // arrays become readonly arrays
+        ? ReadonlyArray<DeepReadonly<U>>
+        : T extends object // nested objects recurse
+            ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+            : T; // primitives stay the same
+
 /**
  * Interface describing sparse set class operations.
  * @interface

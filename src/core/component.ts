@@ -1,25 +1,21 @@
 // noinspection JSUnusedGlobalSymbols
 
 import { ISparseSet } from "../util/sparse-set";
+import { DeepReadonly } from "../util/sparse-set";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
-type DeepTupled<T> = { [K in keyof T]: T[K] extends object ? DeepTupled<T[K]> : T[K] };
+export type Constructor<T = any> = { new(...args: any[]): T };
 
-export type Constructor<T = unknown> = { new(...args: any[]): T };
-
-// 2. Custom DeepReadonly utility type
-type DeepReadonly<T> = {
-    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
-};
-
-type Debug<T> = T;
-type Test = DeepTupled<DeepReadonly<{name: string, obj: { num: number, bool: boolean }}>>;
+type UnionToArray<T> = T extends any ? T[] : never;
 
 /**
  * Non-nullish primitive types.
  */
-export type Value = number | bigint | string | boolean | symbol;
+export type ValuePrimitive = number | string | boolean;
+export type ValueArray = UnionToArray<ValuePrimitive>;
+export type Value = ValuePrimitive | ValueArray;
+export type ValueObject = { [key: string]: Value | ValueObject };
 
 export type DataType<T extends Constructor | Value> =
     T extends Constructor ? InstanceType<T> : T;
@@ -197,7 +193,7 @@ export class Component<C extends Constructor | Value, I extends string>
      * @param ctor
      * @param name
      */
-    public static createClassComponent<T extends Constructor<any>, N extends string>(ctor: T, name: N): ClassComponentType<T, N>
+    public static createClassComponent<T extends Constructor, N extends string>(ctor: T, name: N): ClassComponentType<T, N>
     {
         class PseudoClass
         {
@@ -334,7 +330,7 @@ export class Component<C extends Constructor | Value, I extends string>
      */
     public static getUnchecked<T extends Constructor | Value, N extends string>(index: number, type: ComponentType<T, N>): ComponentInstance<T, N>
     {
-        const value = Component.getSet(type).getUnchecked(index);
+        const value = Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T);
         return Component.rentInstance(type, value);
     }
 
@@ -502,6 +498,6 @@ export class Component<C extends Constructor | Value, I extends string>
         type: T extends Constructor ? ClassComponentType<T, N> : T extends Value ? ValueComponentType<T, N> : never,
     ) : ComponentInstance<T, N>
     {
-        return { value, type } as ComponentInstance<T, N>;
+        return { value: value as DeepReadonly<typeof value>, type } as ComponentInstance<T, N>;
     }
 }

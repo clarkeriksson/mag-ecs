@@ -4,18 +4,14 @@ import { ISparseSet } from "../util/sparse-set";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
+type UnionToArray<T> = T extends any ? (T extends boolean ? boolean[] : T[]) : never;
+
 export type Constructor<T = unknown> = { new(...args: any[]): T };
 
-/**
- * Non-nullish primitive types.
- */
-export type ValuePrimitive = number | bigint | string | boolean | symbol;
 
-export type ValueObject = {
-    [key: string]: ValueObject | ValuePrimitive;
-}
-
-export type Value = number | bigint | string | boolean | symbol | ValueObject;
+export type ValuePrimitive = number | string | boolean;
+export type ValueArray = UnionToArray<ValuePrimitive>;
+export type Value = ValuePrimitive | ValueArray;
 
 /**
  * Component type with a non-nullish primitive as the data value.

@@ -32,39 +32,25 @@ describe("World class", () =>
     const AgeComponent = Component.createComponent<number, "AgeComponent">("AgeComponent");
     const VolumeComponent = Component.createComponent<boolean, "VolumeComponent">("VolumeComponent");
 
-    const TestComponent = Component.createComponent<{ name: string, alias: string }, "TestComponent">("TestComponent");
-
-    const queryTemplate =
-        {
-            animal:
-                {
-                    age: AgeComponent,
-                    name: NameComponent,
-                    alias: AliasComponent,
-                } as const,
-            volume: VolumeComponent,
-        } as const;
-
     const world = new World();
 
     it("creates new entity with accessible components", () =>
     {
         const name = new NameComponent("TestName");
         const alias = new AliasComponent("Alias");
-        const test = new TestComponent({ name: "Clark", alias: "The Shark" });
-        //const age = new AgeComponent(10);
+        const age = new AgeComponent(10);
 
         const entity = world.create(name);
 
-        const desc = new QueryDefinition().withOnly(NameComponent, AliasComponent, TestComponent);
+        const desc = new QueryDefinition().withOnly(NameComponent, AliasComponent, AgeComponent);
 
         const entityCount = world.entityCount(desc);
 
         expect(entityCount).equals(1);
 
-        const [name1, alias1, test1] = world.get([NameComponent, AliasComponent, TestComponent], entity);
+        const [name1, alias1, age1] = world.get([NameComponent, AliasComponent, AgeComponent], entity);
 
-        world.query(desc, (p) => {});
+        world.query(desc, (n, a, age) => {});
 
         expect(name1.value).eq(name.value);
         expect(name1.type).eq(name1.type);

@@ -5,6 +5,10 @@
  */
 export class Bitset
 {
+    private static readonly _flags: Record<Uppercase<string>, number> = {
+        "STATIC": 0,
+    };
+
     /**
      * The null {@link Bitset}.
      */
@@ -341,6 +345,11 @@ export class Bitset
         }
 
         return result;
+    }
+
+    public setStaticFlag(): void
+    {
+        this.set(Bitset._flags.STATIC, true);
     }
 
     /**

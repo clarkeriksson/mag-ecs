@@ -15,7 +15,7 @@ export type {
     ComponentType,
     ClassComponentType,
     ValueComponentType,
-    ComponentInstance,
+    ComponentTypeInstance,
     ClassComponentInstance,
     ValueComponentInstance,
     ComponentInstanceTuple,

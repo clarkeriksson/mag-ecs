@@ -10,12 +10,10 @@ describe("World class", () =>
     {
         public x: number;
         public y: number;
-        public date: Function;
         constructor(x: number, y: number)
         {
             this.x = x;
             this.y = y;
-            this.date = () => {};
         }
     }
 
@@ -30,14 +28,14 @@ describe("World class", () =>
         }
     }
 
-    const PositionComponent = Component.createClassComponent(Position, "Position");
+    const PositionComponent = Component.createReadonlyClassComponent(Position, "Position");
     const VelocityComponent = Component.createClassComponent(Velocity, "Velocity");
     const NameComponent = Component.createValueComponent<string, "NameComponent">("NameComponent");
     const AliasComponent = Component.createValueComponent<string, "AliasComponent">( "AliasComponent");
-    const AgeComponent = Component.createValueComponent<number, "AgeComponent">("AgeComponent");
-    const ListComponent = Component.createValueComponent<number[], "ListComponent">("ListComponent");
+    const AgeComponent = Component.createReadonlyValueComponent<number, "AgeComponent">("AgeComponent");
+    const ListComponent = Component.createReadonlyValueComponent<number[], "ListComponent">("ListComponent");
 
-    const SSNComponent = Component.createStaticValueComponent<number, "SSNComponent">("SSNComponent");
+    const SSNComponent = Component.createStaticReadonlyValueComponent<number, "SSNComponent">("SSNComponent");
     const StaticPositionComponent = Component.createStaticClassComponent(Position, "StaticPosition");
 
     const world = new World();
@@ -96,9 +94,9 @@ describe("World class", () =>
             sp,
             ssn,
             age) => {
-            //sp.value = new Position(0.5,0.7);
-            age.value = 26;
-            //ssn.value = 9876543;
+
+
+
         });
 
         expect(pos1.value).eq(pos.value);

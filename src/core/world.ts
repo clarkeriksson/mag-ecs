@@ -1,18 +1,11 @@
 // noinspection JSUnusedGlobalSymbols
-
-import {
-    AnyComponentInstance,
-    AnyComponentType,
-    Component,
-    StaticComponentInstance,
-    StaticComponentType
-} from "./component";
 import {QueryDefinition} from "./query-definition";
 import {Bitset} from "../util/bitset";
 import {System} from "./system";
 import {TimeContext} from "../util/time-context";
 
-import type { ComponentInstance, ComponentType, Tupled, ComponentInstanceTuple, Constructor, Value } from "./component";
+import {Component, QueryComponentInstanceTuple} from "./component";
+import type { ComponentTypeInstance, ComponentType, Tupled, ComponentInstanceTuple, Constructor, Value } from "./component";
 
 /**
  * @class World
@@ -154,7 +147,7 @@ class World
      * Creates an entity in this {@link World} with the given components.
      * @param components
      */
-    public create(...components: AnyComponentInstance<Constructor | Value, string>[]): number
+    public create(...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, boolean, boolean>>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -176,7 +169,7 @@ class World
         return entity;
     }
 
-    public createStatic(...components: StaticComponentInstance<Constructor | Value, string>[]): number
+    public createStatic(...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, true, boolean>>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -186,7 +179,7 @@ class World
 
         for (const component of components)
         {
-            this.addComponentUnsafe(entity, component as AnyComponentInstance<Constructor | Value, string>);
+            this.addComponentUnsafe(entity, component as ComponentTypeInstance<ComponentType<Constructor | Value, string, true, boolean>>);
         }
 
         const bitset = Component.bitsetFromComponents(...components);
@@ -204,12 +197,12 @@ class World
      * @param entity
      * @param component
      */
-    public addComponent<T extends Constructor | Value>(entity: number, component: AnyComponentInstance<T, string>): number
+    public addComponent<T extends Constructor | Value>(entity: number, component: ComponentTypeInstance<ComponentType<T, string, boolean, boolean>>): number
     {
         Component.set(entity, component);
 
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
-        this._entities[entity]?.set(Component.T(component.type as AnyComponentType<T, string>).id, true);
+        this._entities[entity]?.set(Component.T(component.type as ComponentType<T, string, boolean, boolean>).id, true);
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
 
         return entity;
@@ -220,7 +213,7 @@ class World
      * @param entity
      * @param type
      */
-    public removeComponent<T extends Constructor | Value>(entity: number, type: AnyComponentType<T, string>): boolean
+    public removeComponent<T extends Constructor | Value>(entity: number, type: ComponentType<T, string, boolean, boolean>): boolean
     {
         const removed = Component.removeComponent(entity, type);
 
@@ -238,7 +231,7 @@ class World
      * @param component
      * @private
      */
-    private addComponentUnsafe<T extends Constructor | Value, N extends string>(entity: number, component: AnyComponentInstance<T, N>): number
+    private addComponentUnsafe<T extends Constructor | Value, N extends string>(entity: number, component: ComponentTypeInstance<ComponentType<T, N, boolean, boolean>>): number
     {
         Component.set(entity, component);
         return entity;
@@ -265,7 +258,7 @@ class World
      * @param types
      * @param entity
      */
-    public get<T extends readonly AnyComponentType<Constructor | Value, string>[]>(types: Tupled<T>, entity: number): ComponentInstanceTuple<T>
+    public get<T extends readonly ComponentType<Constructor | Value, string, boolean, boolean>[]>(types: Tupled<T>, entity: number): QueryComponentInstanceTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
@@ -277,7 +270,7 @@ class World
             result[i] = Component.getUnchecked(entity, type);
         }
 
-        return result as ComponentInstanceTuple<T>;
+        return result as QueryComponentInstanceTuple<T>;
     }
 
     public entityCount(def: QueryDefinition): number
@@ -308,7 +301,7 @@ class World
      * @param queryDefinition
      * @private
      */
-    private refreshQuery<T extends AnyComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>): void
+    private refreshQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>): void
     {
         const newQueryResult: number[] = [];
         this._queryCache.set(queryDefinition, newQueryResult);
@@ -327,7 +320,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public query<T extends AnyComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: ComponentInstanceTuple<T>) => void): void
+    public query<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: QueryComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
@@ -339,7 +332,7 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(...components as ComponentInstanceTuple<T>);
+            callback(...components as QueryComponentInstanceTuple<T>);
         }
     }
 
@@ -348,7 +341,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public entityQuery<T extends AnyComponentType<any, string>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
+    public entityQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCache.get(queryDefinition) ?? true)
         {

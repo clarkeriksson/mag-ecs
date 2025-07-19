@@ -51,17 +51,18 @@ describe("World class", () =>
         const age = new AgeComponent(21);
         //const age = new AgeComponent(10);
 
-        const entity = world.create(pos, vel, name, list, sPos, ssn, age);
+        const entity = world.create(world.base("none"), pos, vel, name, list, /*sPos, ssn,*/ age);
 
-        const desc = new QueryDefinition().withOnly(
-            PositionComponent,
-            VelocityComponent,
-            NameComponent,
-            ListComponent,
-            StaticPositionComponent,
-            SSNComponent,
-            AgeComponent
-        );
+        const desc = new QueryDefinition()
+            .withOnly(
+                PositionComponent,
+                VelocityComponent,
+                NameComponent,
+                ListComponent,
+                StaticPositionComponent,
+                SSNComponent,
+                AgeComponent
+            );
 
         const entityCount = world.entityCount(desc);
 
@@ -86,7 +87,8 @@ describe("World class", () =>
             entity
         );
 
-        world.staticQuery(desc, (
+        world.entityQuery(desc, (
+            e,
             p,
             v,
             n,
@@ -95,8 +97,9 @@ describe("World class", () =>
             ssn,
             age) => {
 
-
-
+            //l.value = [1, 2];
+            //sp.value = new Position(1,2);
+            v.value = new Velocity(4, 5);
         });
 
         expect(pos1.value).eq(pos.value);

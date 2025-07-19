@@ -11,6 +11,10 @@ import {Component} from "./component";
  */
 export class QueryDefinition<T extends readonly ComponentType<any, string, any, any>[] = ComponentType<any, string, any, any>[]>
 {
+    private static readonly _flags: Record<Uppercase<string>, number> = {
+        "STATIC": 0,
+    };
+
     /**
      * Internal representation of {@link paramTypes}.
      * @private

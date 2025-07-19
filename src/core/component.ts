@@ -17,10 +17,7 @@ export type ClassComponentType<T extends Constructor, N extends string> = {
     readonly __isTagType: false;
     readonly __static: false;
     readonly __readonly: false;
-    new (...args: ConstructorParameters<T>): {
-        value: InstanceType<T>;
-        readonly type: ClassComponentType<T, N>;
-    }
+    new (...args: ConstructorParameters<T>): ClassComponentInstance<T, N>;
 }
 export type ClassComponentInstance<T extends Constructor, N extends string> = {
     value: InstanceType<T>;
@@ -35,10 +32,7 @@ export type ValueComponentType<T extends Value, N extends string> = {
     readonly __isTagType: boolean;
     readonly __static: false;
     readonly __readonly: false;
-    new (arg: T): {
-        value: T;
-        readonly type: ValueComponentType<T, N>;
-    }
+    new (arg: T): ValueComponentInstance<T, N>;
 }
 export type ValueComponentInstance<T extends Value, N extends string> = {
     value: T;
@@ -53,10 +47,7 @@ export type ReadonlyClassComponentType<T extends Constructor, N extends string> 
     readonly __isTagType: false;
     readonly __static: false;
     readonly __readonly: true;
-    new (...args: ConstructorParameters<T>): {
-        readonly value: DeepReadonly<InstanceType<T>>;
-        readonly type: ReadonlyClassComponentType<T, N>;
-    }
+    new (...args: ConstructorParameters<T>): ReadonlyClassComponentInstance<T, N>;
 }
 export type ReadonlyClassComponentInstance<T extends Constructor, N extends string> = {
     readonly value: DeepReadonly<InstanceType<T>>;
@@ -71,10 +62,7 @@ export type ReadonlyValueComponentType<T extends Value, N extends string> = {
     readonly __isTagType: boolean;
     readonly __static: false;
     readonly __readonly: true;
-    new (arg: T): {
-        readonly value: DeepReadonly<T>;
-        readonly type: ReadonlyValueComponentType<T, N>;
-    }
+    new (arg: T): ReadonlyValueComponentInstance<T, N>;
 }
 export type ReadonlyValueComponentInstance<T extends Value, N extends string> = {
     readonly value: DeepReadonly<T>;
@@ -89,10 +77,7 @@ export type StaticClassComponentType<T extends Constructor, N extends string> = 
     readonly __isTagType: false;
     readonly __static: true;
     readonly __readonly: false;
-    new (...args: ConstructorParameters<T>): {
-        value: InstanceType<T>;
-        readonly type: StaticClassComponentType<T, N>;
-    }
+    new (...args: ConstructorParameters<T>): StaticClassComponentInstance<T, N>;
 }
 export type StaticClassComponentInstance<T extends Constructor, N extends string> = {
     value: InstanceType<T>;
@@ -107,10 +92,7 @@ export type StaticValueComponentType<T extends Value, N extends string> = {
     readonly __isTagType: boolean;
     readonly __static: true;
     readonly __readonly: false;
-    new (arg: T): {
-        value: T;
-        readonly type: StaticValueComponentType<T, N>;
-    }
+    new (arg: T): StaticValueComponentInstance<T, N>;
 }
 export type StaticValueComponentInstance<T extends Value, N extends string> = {
     value: T;
@@ -125,10 +107,7 @@ export type StaticReadonlyClassComponentType<T extends Constructor, N extends st
     readonly __isTagType: false;
     readonly __static: true;
     readonly __readonly: true;
-    new (...args: ConstructorParameters<T>): {
-        readonly value: DeepReadonly<InstanceType<T>>;
-        readonly type: StaticReadonlyClassComponentType<T, N>;
-    }
+    new (...args: ConstructorParameters<T>): StaticReadonlyClassComponentInstance<T, N>;
 }
 export type StaticReadonlyClassComponentInstance<T extends Constructor, N extends string> = {
     readonly value: DeepReadonly<InstanceType<T>>;
@@ -143,10 +122,7 @@ export type StaticReadonlyValueComponentType<T extends Value, N extends string> 
     readonly __isTagType: boolean;
     readonly __static: true;
     readonly __readonly: true;
-    new (arg: T): {
-        readonly value: DeepReadonly<T>;
-        readonly type: StaticReadonlyValueComponentType<T, N>;
-    }
+    new (arg: T): StaticReadonlyValueComponentInstance<T, N>;
 }
 export type StaticReadonlyValueComponentInstance<T extends Value, N extends string> = {
     readonly value: DeepReadonly<T>;
@@ -256,11 +232,22 @@ export type StaticComponentInstanceTuple<T extends readonly ComponentType<any, a
 
 export type QueryComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
     [K in keyof T]: T[K] extends ComponentType<any, any, true, false>
-        ? DeepReadonly<ComponentTypeInstance<T[K]>>
+        ? ReadonlyComponentInstanceFrom<ComponentTypeInstance<T[K]>>
         : T[K] extends ComponentType<any, any, any, any>
             ? ComponentTypeInstance<T[K]>
             : never;
 }
+
+export type ReadonlyComponentInstanceFrom<T> =
+    T extends ComponentInstance<any, any, any, false>
+        ? T extends ClassComponentInstance<infer CT, infer CN> ? ReadonlyClassComponentInstance<CT, CN>
+            : T extends StaticClassComponentInstance<infer SCT, infer SCN> ? StaticReadonlyClassComponentInstance<SCT, SCN>
+                : T extends ValueComponentInstance<infer VT, infer VN> ? ReadonlyValueComponentInstance<VT, VN>
+                    : T extends StaticValueComponentInstance<infer SVT, infer SVN> ? StaticReadonlyValueComponentInstance<SVT, SVN>
+                        : never
+        : T extends ComponentInstance<any, any, any, true>
+        ? T
+        : never;
 
 /**
  * Non-nullish primitive types.

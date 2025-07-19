@@ -6,6 +6,7 @@ import {TimeContext} from "../util/time-context";
 
 import {Component, QueryComponentInstanceTuple, StaticComponentType} from "./component";
 import type { ComponentTypeInstance, ComponentType, Tupled, ComponentInstanceTuple, StaticComponentInstanceTuple, Constructor, Value } from "./component";
+import {SparseTagSet} from "../util/sparse-tag-set";
 
 /**
  * @class World
@@ -18,6 +19,8 @@ class World
      * @private
      */
     private static readonly _statics: World[] = [];
+
+    private readonly _bases: Record<string, number> = { "none": -1 };
 
     /**
      * Static incrementing value used for {@link World} ids.
@@ -34,13 +37,19 @@ class World
      * Array of entity {@link Bitset}(s), where index corresponds to entity id. Empty spots are null.
      * @private
      */
-    private readonly _entities: (Bitset | null)[];
+    private readonly _entities: (Bitset | undefined)[];
+
+    private readonly _inheritance: (number | undefined)[];
+
+    private readonly _staticEntities: (Bitset | undefined)[];
 
     /**
      * Array of unused entity ids, for entity id recycling.
      * @private
      */
     private readonly _cemetery: number[];
+
+    private readonly _staticCemetery: number[];
 
     /**
      * Cache containing lists of entity ids corresponding to previously used {@link QueryDefinition}(s).
@@ -53,6 +62,10 @@ class World
      * @private
      */
     private readonly _queryCacheDirty: Map<QueryDefinition, boolean>;
+
+    private readonly _staticQueryCache: Map<QueryDefinition, number[]>;
+
+    private readonly _staticQueryCacheDirty: Map<QueryDefinition, boolean>;
 
     /**
      * This {@link World}'s registered systems.
@@ -72,8 +85,16 @@ class World
         this._entities = [];
         this._cemetery = [];
 
+        this._inheritance = [];
+
+        this._staticEntities = [];
+        this._staticCemetery = [];
+
         this._queryCache = new Map();
         this._queryCacheDirty = new Map();
+
+        this._staticQueryCache = new Map();
+        this._staticQueryCacheDirty = new Map();
 
         this._systems = [];
 
@@ -113,6 +134,15 @@ class World
     }
 
     /**
+     * Gets the numeric id of the base entity registered to the given name.
+     * @param name
+     */
+    public base(name: string): number
+    {
+        return this._bases[name] || -1;
+    }
+
+    /**
      * Registers a new {@link System} to this {@link World}.
      * @param system
      */
@@ -145,14 +175,20 @@ class World
 
     /**
      * Creates an entity in this {@link World} with the given components.
+     * @param from
      * @param components
      */
-    public create(...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, boolean, boolean>>[]): number
+    public create(from: number, ...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, false, boolean>>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
         {
             entity = this._entities.length;
+        }
+
+        if (from !== -1)
+        {
+            this._inheritance[entity] = from;
         }
 
         for (const component of components)
@@ -169,13 +205,15 @@ class World
         return entity;
     }
 
-    public createStatic(...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, true, boolean>>[]): number
+    public createStatic(name: string, ...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, true, boolean>>[]): number
     {
-        let entity = this._cemetery.pop();
+        let entity = this._staticCemetery.pop();
         if (entity === undefined)
         {
-            entity = this._entities.length;
+            entity = this._staticEntities.length;
         }
+
+        if (this._bases[name] !== undefined) throw new Error('Attempted reassignment of a static base entity.');
 
         for (const component of components)
         {
@@ -183,11 +221,12 @@ class World
         }
 
         const bitset = Component.bitsetFromComponents(...components);
-        bitset.setStaticFlag();
 
         this.dirtyQueriesMatching(bitset);
 
-        this._entities[entity] = bitset;
+        this._staticEntities[entity] = bitset;
+
+        this._bases[name] = entity;
 
         return entity;
     }
@@ -197,13 +236,24 @@ class World
      * @param entity
      * @param component
      */
-    public addComponent<T extends Constructor | Value>(entity: number, component: ComponentTypeInstance<ComponentType<T, string, boolean, boolean>>): number
+    public addComponent<T extends Constructor | Value>(entity: number, component: ComponentTypeInstance<ComponentType<T, string, false, boolean>>): number
     {
         Component.set(entity, component);
 
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(component.type as ComponentType<T, string, boolean, boolean>).id, true);
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+
+        return entity;
+    }
+
+    public addStaticComponent<T extends Constructor | Value>(entity: number, component: ComponentTypeInstance<ComponentType<T, string, true, boolean>>): number
+    {
+        Component.set(entity, component);
+
+        this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
+        this._staticEntities[entity]?.set(Component.T(component.type as ComponentType<T, string, true, boolean>).id, true);
+        this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
 
         return entity;
     }
@@ -220,6 +270,17 @@ class World
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(type).id, false);
         this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+
+        return removed !== null;
+    }
+
+    public removeStaticComponent<T extends Constructor | Value>(entity: number, type: ComponentType<T, string, false, boolean>): boolean
+    {
+        const removed = Component.removeComponent(entity, type);
+
+        this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
+        this._staticEntities[entity]?.set(Component.T(type).id, false);
+        this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
 
         return removed !== null;
     }
@@ -247,7 +308,7 @@ class World
 
         const removed = Component.removeAll(entity);
 
-        this._entities[entity] = null;
+        delete this._entities[entity];
         this._cemetery.push(entity);
 
         return removed;
@@ -260,8 +321,28 @@ class World
      */
     public get<T extends readonly ComponentType<Constructor | Value, string, boolean, boolean>[]>(types: Tupled<T>, entity: number): QueryComponentInstanceTuple<T>
     {
-        const signature = Component.bitsetFromTypes(...types);
+        const instanceSignature = Component.bitsetFromTypes(...types);
+        const prototype = this._inheritance[entity];
+        const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype] ?? Bitset.null;
+
+        const signature = Bitset.or(instanceSignature, staticSignature);
+
         if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
+
+        let result= new Array(types.length);
+        for (let i = 0; i < types.length; i++)
+        {
+            const type = types[i];
+            result[i] = Component.getUnchecked(instanceSignature.get(Component.T(type).id) ? entity : prototype!, type);
+        }
+
+        return result as QueryComponentInstanceTuple<T>;
+    }
+
+    public getStatic<T extends readonly ComponentType<Constructor | Value, string, boolean, boolean>[]>(types: Tupled<T>, entity: number): StaticComponentInstanceTuple<T>
+    {
+        const signature = Component.bitsetFromTypes(...types);
+        if (!this._staticEntities[entity]?.isSupersetOf(signature)) throw new Error();
 
         let result= new Array(types.length);
         for (let i = 0; i < types.length; i++)
@@ -270,7 +351,7 @@ class World
             result[i] = Component.getUnchecked(entity, type);
         }
 
-        return result as QueryComponentInstanceTuple<T>;
+        return result as StaticComponentInstanceTuple<T>;
     }
 
     public entityCount(def: QueryDefinition): number
@@ -296,6 +377,17 @@ class World
         }
     }
 
+    private dirtyStaticQueriesMatching(signature: Bitset): void
+    {
+        for (const [cacheQuery, _] of this._staticQueryCacheDirty)
+        {
+            if (cacheQuery.satisfiedBy(signature))
+            {
+                this._staticQueryCacheDirty.set(cacheQuery, true);
+            }
+        }
+    }
+
     /**
      * Updates the cache for the query with the given {@link QueryDefinition}.
      * @param queryDefinition
@@ -315,9 +407,34 @@ class World
         this._queryCacheDirty.set(queryDefinition, false);
     }
 
+    private refreshStaticQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>): void
+    {
+        const newQueryResult: number[] = [];
+        this._staticQueryCache.set(queryDefinition, newQueryResult);
+
+        for (let i = 0; i < this._staticEntities.length; i++)
+        {
+            const entitySignature = this._staticEntities[i] ?? Bitset.null;
+            if (queryDefinition.satisfiedBy(entitySignature)) newQueryResult.push(i);
+        }
+
+        this._staticQueryCacheDirty.set(queryDefinition, false);
+    }
+
     public staticQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDef: QueryDefinition<T>, callback: (...components: StaticComponentInstanceTuple<T>) => void): void
     {
+        if (this._staticQueryCacheDirty.get(queryDef) ?? true)
+        {
+            this.refreshStaticQuery(queryDef);
+        }
 
+        const entities = this._staticQueryCache.get(queryDef)!;
+
+        for (const entity of entities)
+        {
+            const components = this.getStatic(queryDef.paramTypes, entity);
+            callback(...components as StaticComponentInstanceTuple<T>)
+        }
     }
 
     /**
@@ -346,7 +463,7 @@ class World
      * @param queryDefinition
      * @param callback
      */
-    public entityQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: ComponentInstanceTuple<T>) => void): void
+    public entityQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (entity: number, ...components: QueryComponentInstanceTuple<T>) => void): void
     {
         if (this._queryCache.get(queryDefinition) ?? true)
         {
@@ -358,7 +475,23 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(entity, ...components as ComponentInstanceTuple<T>);
+            callback(entity, ...components as QueryComponentInstanceTuple<T>);
+        }
+    }
+
+    public staticEntityQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDef: QueryDefinition<T>, callback: (entity: number, ...components: StaticComponentInstanceTuple<T>) => void): void
+    {
+        if (this._staticQueryCache.get(queryDef) ?? true)
+        {
+            this.refreshStaticQuery(queryDef);
+        }
+
+        const entities = this._staticQueryCache.get(queryDef)!;
+
+        for (const entity of entities)
+        {
+            const components = this.getStatic(queryDef.paramTypes, entity);
+            callback(entity, ...components as StaticComponentInstanceTuple<T>);
         }
     }
 }

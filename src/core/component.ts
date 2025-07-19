@@ -179,6 +179,17 @@ export type ComponentType<T extends Constructor | Value, N extends string, Stati
                 ) : never
         ) : never;
 
+export type StaticComponentType<T extends Constructor | Value, N extends string, Readonly extends boolean> =
+    T extends Constructor
+        ? Readonly extends true
+            ? StaticReadonlyClassComponentType<T, N>
+            : Readonly extends false ? StaticClassComponentType<T, N> : never
+        : T extends Value
+        ? Readonly extends true
+            ? StaticReadonlyValueComponentType<T, N>
+            : Readonly extends false ? StaticValueComponentType<T, N> : never
+        : never;
+
 export type ComponentInstance<T extends Constructor | Value, N extends string, Static extends boolean, Readonly extends boolean> =
     T extends Constructor
         ? (
@@ -233,6 +244,12 @@ export type QueryComponentTypeInstance<T extends QueryComponentType<any, any, an
 
 export type ComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
     [K in keyof T]: T[K] extends ComponentType<any, any, any, any>
+        ? ComponentTypeInstance<T[K]>
+        : never;
+}
+
+export type StaticComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
+    [K in keyof T]: T[K] extends StaticComponentType<any, any, any>
         ? ComponentTypeInstance<T[K]>
         : never;
 }

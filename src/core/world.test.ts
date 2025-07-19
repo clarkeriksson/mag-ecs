@@ -86,7 +86,7 @@ describe("World class", () =>
             entity
         );
 
-        world.query(desc, (
+        world.staticQuery(desc, (
             p,
             v,
             n,

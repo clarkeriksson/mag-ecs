@@ -4,8 +4,8 @@ import {Bitset} from "../util/bitset";
 import {System} from "./system";
 import {TimeContext} from "../util/time-context";
 
-import {Component, QueryComponentInstanceTuple} from "./component";
-import type { ComponentTypeInstance, ComponentType, Tupled, ComponentInstanceTuple, Constructor, Value } from "./component";
+import {Component, QueryComponentInstanceTuple, StaticComponentType} from "./component";
+import type { ComponentTypeInstance, ComponentType, Tupled, ComponentInstanceTuple, StaticComponentInstanceTuple, Constructor, Value } from "./component";
 
 /**
  * @class World
@@ -313,6 +313,11 @@ class World
         }
 
         this._queryCacheDirty.set(queryDefinition, false);
+    }
+
+    public staticQuery<T extends ComponentType<any, string, boolean, boolean>[]>(queryDef: QueryDefinition<T>, callback: (...components: StaticComponentInstanceTuple<T>) => void): void
+    {
+
     }
 
     /**

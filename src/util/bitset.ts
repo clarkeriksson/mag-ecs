@@ -74,6 +74,14 @@ export class Bitset
     private _setFlagCount: number;
 
     /**
+     * Public view for the number of flags set to 'true' in this {@link Bitset}.
+     */
+    public get setFlagCount(): number
+    {
+        return this._setFlagCount;
+    }
+
+    /**
      * The number of {@link Bitset} representations in the {@link _memArray} before this one. It is important to note
      * that each {@link Bitset} representation has a length in the array of {@link _int8Count}.
      * @private
@@ -86,6 +94,7 @@ export class Bitset
      */
     private readonly _intIndex: number;
 
+    /** Static init block. */
     static
     {
         Bitset.setFlagCount(32);
@@ -102,17 +111,27 @@ export class Bitset
         this._intIndex = this._memIndex * Bitset._int8Count;
     }
 
+    /**
+     * Sets this {@link Bitset} instance's bit at the given index to the given value.
+     * @param index The set index.
+     * @param value The set value.
+     */
     public set(index: number, value: boolean): void
     {
         const intIndex = this.getBitIntIndex(index);
         const mask = 1 << index;
 
-        const prevValue = this.get(index) ? 1 : 0;
+        const wasSet = (Bitset._memArray[intIndex] & mask) !== 0;
+        this._setFlagCount = (+value) - (-wasSet); // +/- coerces to num.
 
-        Bitset._memArray[intIndex] = value ? (Bitset._memArray[intIndex] | mask) : (Bitset._memArray[intIndex] & ~mask);
-        this._setFlagCount += (prevValue & 1) - ~(prevValue)
+        // Resets the bit, then sets it to the new value.
+        Bitset._memArray[intIndex] = (Bitset._memArray[intIndex] & ~mask) | (mask * (+value));
     }
 
+    /**
+     * Gets this {@link Bitset} instance's value at the given index.
+     * @param index The bit index.
+     */
     public get(index: number): boolean
     {
         const intIndex = this.getBitIntIndex(index);
@@ -121,45 +140,98 @@ export class Bitset
         return (Bitset._memArray[intIndex] & mask) !== 0;
     }
 
-    public and(other: Bitset): void
+    /**
+     * Counts the number of set bits in an int8. Uses Brian Kernighan's algorithm.
+     * @param int The int8.
+     * @private
+     */
+    private countSetBitsInInt(int: number): number
     {
+        let count = 0;
+        while (int)
+        {
+            count++;
+            int &= int - 1; // Clear the lowest set bit.
+        }
+        return count;
+    }
+
+    /**
+     * Sets this {@link Bitset} to the result of a bitwise and with the given other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
+    public and(other: Bitset): Bitset
+    {
+        this._setFlagCount = 0;
+
         for (let i = 0; i < Bitset._int8Count; i++)
         {
             Bitset._memArray[this._intIndex + i] &= Bitset._memArray[other._intIndex + i];
+            this._setFlagCount += this.countSetBitsInInt(Bitset._memArray[this._intIndex + i]);
         }
+
+        return this;
     }
 
-    public or(other: Bitset): void
+    /**
+     * Sets this {@link Bitset} to the result of a bitwise or with the given other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
+    public or(other: Bitset): Bitset
     {
+        this._setFlagCount = 0;
+
         for (let i = 0; i < Bitset._int8Count; i++)
         {
             Bitset._memArray[this._intIndex + i] |= Bitset._memArray[other._intIndex + i];
+            this._setFlagCount += this.countSetBitsInInt(Bitset._memArray[this._intIndex + i]);
         }
+
+        return this;
     }
 
-    public xor(other: Bitset): void
+    /**
+     * Sets this {@link Bitset} to the result of a bitwise xor with the given other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
+    public xor(other: Bitset): Bitset
     {
+        this._setFlagCount = 0;
+
         for (let i = 0; i < Bitset._int8Count; i++)
         {
             Bitset._memArray[this._intIndex + i] ^= Bitset._memArray[other._intIndex + i];
+            this._setFlagCount += this.countSetBitsInInt(Bitset._memArray[this._intIndex + i]);
         }
+
+        return this;
     }
 
-    public not(): void
+    /**
+     * Sets this {@link Bitset} to the result of a bitwise not operation on itself.
+     */
+    public not(): Bitset
     {
         for (let i = 0; i < Bitset._int8Count - 1; i++)
         {
             Bitset._memArray[this._intIndex + i] = ~Bitset._memArray[this._intIndex + i];
         }
 
-        const mask = 0xff >> (Bitset._flagCount % 64);
+        const mask = (1 << (Bitset._flagCount % 64)) - 1;
 
         Bitset._memArray[this._intIndex + Bitset._int8Count - 1] =
             ~Bitset._memArray[this._intIndex + Bitset._int8Count - 1];
 
-        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] &= ~mask;
+        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] &= mask;
+
+        this._setFlagCount = Bitset._flagCount - this._setFlagCount;
+
+        return this;
     }
 
+    /**
+     * Sets all values in this {@link Bitset} to false.
+     */
     public clear(): void
     {
         for (let i = 0; i < Bitset._int8Count; i++)
@@ -168,6 +240,18 @@ export class Bitset
         }
     }
 
+    public copyTo(other: Bitset): void
+    {
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            Bitset._memArray[other._intIndex + i] = Bitset._memArray[this._intIndex + i];
+        }
+    }
+
+    /**
+     * Checks if this {@link Bitset} instance is a subset of the other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
     public isSubsetOf(other: Bitset): boolean
     {
         const checkSet = Bitset.and(this, other);
@@ -182,11 +266,19 @@ export class Bitset
         return false;
     }
 
+    /**
+     * Checks if this {@link Bitset} instance is a superset of the other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
     public isSupersetOf(other: Bitset): boolean
     {
         return other.isSubsetOf(this);
     }
 
+    /**
+     * Checks if this {@link Bitset} exactly equals the other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
     public equals(other: Bitset): boolean
     {
         for (let i = 0; i < Bitset._int8Count; i++)
@@ -200,26 +292,23 @@ export class Bitset
         return true;
     }
 
+    /**
+     * Checks if this {@link Bitset} overlaps with the other {@link Bitset}.
+     * @param other The other {@link Bitset}.
+     */
     public overlaps(other: Bitset): boolean
     {
-        const checkSet = Bitset.and(this, other);
-        for (let i = 0; i < Bitset._int8Count; i++)
-        {
-            if (Bitset._memArray[checkSet._intIndex + i] !== 0)
-            {
-                Bitset.return(checkSet);
-                return false;
-            }
-        }
-
-        Bitset.return(checkSet);
-        return true;
+        return Bitset.and(this, other).setFlagCount !== 0;
     }
 
+    /**
+     * Returns the result of the bitwise and operation on the given {@link Bitset} instances in the order provided.
+     * @param bitsets The list of {@link Bitset} instances.
+     */
     public static and(...bitsets: Bitset[]): Bitset
     {
         const result = Bitset.rent();
-        result.not();
+        bitsets[0].copyTo(result);
 
         for (let i = 0; i < bitsets.length; i++)
         {
@@ -229,6 +318,10 @@ export class Bitset
         return result;
     }
 
+    /**
+     * Returns the result of the bitwise or operation on the given {@link Bitset} instances in the order provided.
+     * @param bitsets The list of {@link Bitset} instances.
+     */
     public static or(...bitsets: Bitset[]): Bitset
     {
         const result = Bitset.rent();
@@ -241,6 +334,10 @@ export class Bitset
         return result;
     }
 
+    /**
+     * Returns the result of the bitwise xor operation on the given {@link Bitset} instances in the order provided.
+     * @param bitsets The list of {@link Bitset} instances.
+     */
     public static xor(...bitsets: Bitset[]): Bitset
     {
         const result = Bitset.rent();
@@ -253,6 +350,11 @@ export class Bitset
         return result;
     }
 
+    /**
+     * Returns the index of the int8 that this {@link Bitset} instance's provided bit index resides within.
+     * @param bitIndex The bit index.
+     * @private
+     */
     private getBitIntIndex(bitIndex: number = 0): number
     {
         return this._intIndex + Math.floor(bitIndex / 64);
@@ -285,7 +387,7 @@ export class Bitset
 
     /**
      * Ensures the {@link _memBuffer} can hold the number of {@link Bitset} instances provided.
-     * @param size
+     * @param size The size in units of {@link Bitset}.
      * @private
      */
     private static ensureCapacity(size: number): void
@@ -325,6 +427,9 @@ export class Bitset
         return newReserved;
     }
 
+    /**
+     * Rents a pooled {@link Bitset} instance for use after clearing it.
+     */
     public static rent(): Bitset
     {
         const rented = Bitset._instancePool.pop();
@@ -333,8 +438,22 @@ export class Bitset
         return rented ?? new Bitset();
     }
 
+    /**
+     * Returns or provides a {@link Bitset} instance to the internal pool.
+     * @param bitset The returned {@link Bitset}.
+     */
     public static return(bitset: Bitset): void
     {
         Bitset._instancePool.push(bitset);
+    }
+
+    public toString(): string
+    {
+        let string = "";
+        for (let i = Bitset._flagCount - 1; i >= 0; i--)
+        {
+            string += this.get(i) ? "1" : "0";
+        }
+        return string || "0";
     }
 }

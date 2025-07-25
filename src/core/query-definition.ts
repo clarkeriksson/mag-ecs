@@ -81,7 +81,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
      */
     public withAll<T extends ComponentType<any, string, any, any>[]>(...types: T): QueryDefinition<T>
     {
-        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withAll' filter on a query " +
+        if (this._withOnly.setFlagCount !== 0) throw new Error("Attempted to apply a 'withAll' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
 
         this._paramTypes = types;
@@ -96,7 +96,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
      */
     public withNone(...types: ComponentType<any, string, any, any>[]): QueryDefinition<T>
     {
-        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withNone' filter on a query " +
+        if (this._withOnly.setFlagCount !== 0) throw new Error("Attempted to apply a 'withNone' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
 
         this._withNone = Component.bitsetFromTypes(...types);
@@ -110,7 +110,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
      */
     public withOne(...types: ComponentType<any, string, any, any>[]): QueryDefinition<T>
     {
-        if (this._withOnly.setCount !== 0) throw new Error("Attempted to apply a 'withOne' filter on a query " +
+        if (this._withOnly.setFlagCount !== 0) throw new Error("Attempted to apply a 'withOne' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
 
         this._withOne = Component.bitsetFromTypes(...types);
@@ -124,7 +124,8 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
      */
     public withOnly<T extends ComponentType<any, string, any, any>[]>(...types: T): QueryDefinition<T>
     {
-        if (this._withAll.setCount !== 0 || this._withNone.setCount !== 0) throw new Error("Attempted to apply a " +
+        if (this._withAll.setFlagCount !== 0 || this._withNone.setFlagCount !== 0) throw new Error("Attempted to" +
+            " apply a " +
             "'withOnly' filter on a query definition with a preexisting 'withAll' or 'withNone' filter.");
 
         this._paramTypes = types;
@@ -139,16 +140,16 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
     public satisfiedBy(signature: Bitset): boolean
     {
         // With Only Check
-        if (this._withOnly.setCount !== 0) return signature.equals(this._withOnly);
+        if (this._withOnly.setFlagCount !== 0) return signature.equals(this._withOnly);
 
         // With None Check
         if (this._withNone.overlaps(signature)) return false;
 
         // With One Check
-        if (this._withOne.setCount !== 0 && Bitset.and(this._withOne, signature).setCount !== 1) return false;
+        if (this._withOne.setFlagCount !== 0 && Bitset.and(this._withOne, signature).setFlagCount !== 1) return false;
 
         // With Some Check
-        if (this._withSome.setCount !== 0 && Bitset.and(this._withSome, signature).setCount === 0) return false;
+        if (this._withSome.setFlagCount !== 0 && Bitset.and(this._withSome, signature).setFlagCount === 0) return false;
 
         // With All Check
         return signature.isSupersetOf(this._withAll);

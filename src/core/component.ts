@@ -378,7 +378,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
      * Reserved Bits: [0 as static flag]
      * @private
      */
-    private static _idCounter: number = 1;
+    private static _idCounter: number = 0;
 
     /**
      * The internal representation of the {@link Component} id.

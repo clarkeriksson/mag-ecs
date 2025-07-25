@@ -258,6 +258,8 @@ class World
 
         const bitset = Bitset.or(instanceSignature, staticSignature);
 
+        //console.log(bitset.toString());
+
         this.dirtyQueriesMatching(bitset);
 
         this._entities[entity] = instanceSignature;
@@ -391,6 +393,7 @@ class World
 
         //console.log(this.getSignature(entity).toString(), typesSignature.toString());
 
+        //console.log(typesSignature.toString());
         if (!this.getSignature(entity).isSupersetOf(typesSignature)) throw new Error();
 
         //console.log(signature);
@@ -533,7 +536,7 @@ class World
             //console.log(queryDefinition);
         }
 
-        //console.log(queryDefinition);
+        //console.log(queryDefinition._withAll.toString());
 
         const entities = this._queryCache.get(queryDefinition)!;
 

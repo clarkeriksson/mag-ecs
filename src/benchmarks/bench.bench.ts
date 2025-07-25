@@ -50,7 +50,7 @@ describe("bench", () => {
         "winter": 0,
     };
 
-    for (let i = 0; i < 20000; i++)
+    for (let i = 0; i < 100000; i++)
     {
         const whichBase = ["StaticEntity0", "StaticEntity1", "StaticEntity2"][Math.floor(Math.random() * 2.99)];
         counts[whichBase] += 1;
@@ -58,15 +58,24 @@ describe("bench", () => {
             new CTag(true),
             (Math.random() > 0.5) ? new CVelocity() : undefined,
             (Math.random() > 0.8) ? new CAcceleration() : undefined,
+            (Math.random() > 0.4) ? new CPosition() : undefined,
         ].filter(v => v !== undefined);
         const result = world.create(world.base(whichBase), ...optionalComponents);
-        //console.log(optionalComponents);
         //console.log(world.get([COutdoorSeason], result));
     }
 
     //console.log(process.memoryUsage());
 
     let queriedCounts = [0, 0, 0]
+
+    // COutdoorSeason
+    // CSource
+    // CGameId
+    // CPlacementRules
+    // CTag
+    // ?CVelocity
+    // ?CAcceleration
+    // ?CPosition
 
     const queryDef0 = new QueryDefinition()
         .withAll(CAcceleration, CPlacementRules, CGameId, COutdoorSeason, CSource);
@@ -80,12 +89,16 @@ describe("bench", () => {
     const queryDef3 = new QueryDefinition()
         .withAll(CTag);
 
-    console.log(world.entityCount(queryDef0));
+    let count = 0;
 
     bench("first iteration", () => {
-        world.entityCount(queryDef3);
+        world.query(queryDef0, (acc, a, b, season) =>
+        {
+            acc.value.ax += 0.1;
+            if (season.value === 'winter') count++;
+        });
     }, {
-        warmupIterations: 100,
-        iterations: 100,
+        warmupIterations: 0,
+        iterations: 1,
     });
 });

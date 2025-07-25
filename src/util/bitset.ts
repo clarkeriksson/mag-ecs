@@ -6,413 +6,335 @@
 export class Bitset
 {
     /**
-     * The null {@link Bitset}.
+     * A null bitset instance.
      */
-    public static null: Bitset = new Bitset();
+    public static readonly null: Bitset;
 
     /**
-     * Defines the default size in bytes for a new {@link Bitset}.
+     * The number of flags a {@link Bitset} represents.
      * @private
      */
-    private static _defaultSize: number = 64;
+    private static _flagCount: number;
 
     /**
-     * Public access of the default size value.
-     */
-    public static get defaultSize(): number { return this._defaultSize; }
-
-    /**
-     * The buffer representation of the integers storing the {@link Bitset}.
+     * The number of bits that make up a {@link Bitset}. This differs from the {@link _flagCount} due to this count
+     * being rounded to the nearest multiple of 64 (8 bytes).
      * @private
      */
-    private _buffer: ArrayBuffer;
+    private static _bitCount: number;
 
     /**
-     * The array representation of the {@link Bitset}, where "bits" are 1-byte unsigned integers internally.
+     * The number of bytes that make up a {@link Bitset}. This value is an alternate representation of
+     * {@link _bitCount} and {@link _int8Count}.
      * @private
      */
-    private _bytes: Uint8Array;
+    private static _byteCount: number;
 
     /**
-     * The length of the bitset.
+     * The number of int8's that make up a {@link Bitset}. This value is an alternate representation of
+     * {@link _bitCount} and {@link _byteCount}.
      * @private
      */
-    private _size: number;
+    private static _int8Count: number;
 
     /**
-     * Provides the current length of the internal {@link Bitset} representation.
+     * The array buffer holding the data of all {@link Bitset} instances as bytes.
+     * @private
      */
-    public get size(): number
+    private static _memBuffer: ArrayBuffer;
+
+    /**
+     * The typed array view of the {@link _memBuffer}.
+     * @private
+     */
+    private static _memArray: Uint8Array;
+
+    /**
+     * The number of spots currently in use or previously used in the {@link _memArray}.
+     * @private
+     */
+    private static _memSize: number;
+
+    /**
+     * The array holding currently unused {@link _memBuffer} index values for reuse.
+     * @private
+     */
+    private static _cemetery: number[];
+
+    /**
+     * Pool of unused {@link Bitset} instances for reuse.
+     * @private
+     */
+    private static _instancePool: Bitset[];
+
+    /**
+     * The number of flags set to 'true' in this {@link Bitset}.
+     * @private
+     */
+    private _setFlagCount: number;
+
+    /**
+     * The number of {@link Bitset} representations in the {@link _memArray} before this one. It is important to note
+     * that each {@link Bitset} representation has a length in the array of {@link _int8Count}.
+     * @private
+     */
+    private readonly _memIndex: number;
+
+    /**
+     * The number of int8 instances that come before the data of this {@link Bitset}.
+     * @private
+     */
+    private readonly _intIndex: number;
+
+    static
     {
-        return this._size;
-    }
-
-    /**
-     * Provides the current last value of this {@link Bitset}.
-     */
-    public get last(): boolean
-    {
-        return this.get(this._size);
-    }
-
-    /**
-     * The number of bits that are set to 1.
-     * @private
-     */
-    private _setCount: number;
-
-    /**
-     * The number of bits set to 1.
-     */
-    public get setCount(): number
-    {
-        return this._setCount;
+        Bitset.setFlagCount(32);
+        Bitset.memReset();
     }
 
     /**
      * Creates an instance of {@link Bitset}.
-     * @constructor
      */
-    public constructor()
+    constructor()
     {
-        this._buffer = new ArrayBuffer(Bitset._defaultSize);
-        this._bytes = new Uint8Array(this._buffer);
-        this._size = 0;
-        this._setCount = 0;
-        this.clear();
+        this._setFlagCount = 0;
+        this._memIndex = Bitset.reserveIndex();
+        this._intIndex = this._memIndex * Bitset._int8Count;
     }
 
-    /**
-     * Sets the bit at the index to the given value.
-     * @param index
-     * @param value
-     */
     public set(index: number, value: boolean): void
     {
-        this.ensureCapacity(index + 1);
+        const intIndex = this.getBitIntIndex(index);
+        const mask = 1 << index;
 
-        const byteIndex = (index / 8) | 0;
-        const bitIndex = index % 8;
-        const mask = 1 << bitIndex;
+        const prevValue = this.get(index) ? 1 : 0;
 
-        const wasSet = (this._bytes[byteIndex] & mask) !== 0;
-        this._setCount = (+value) - (+wasSet); // + signs are bool to num conversion
-
-        // Resets the bit, then sets it to the new value.
-        this._bytes[byteIndex] = (this._bytes[byteIndex] & ~mask) | (mask * (+value));
+        Bitset._memArray[intIndex] = value ? (Bitset._memArray[intIndex] | mask) : (Bitset._memArray[intIndex] & ~mask);
+        this._setFlagCount += (prevValue & 1) - ~(prevValue)
     }
 
-    /**
-     * Gets the bit at the index as a boolean.
-     * No bounds checking performed.
-     * @param index
-     */
     public get(index: number): boolean
     {
-        const byteIndex = (index / 8) | 0;
-        const bitIndex = index % 8;
-        const mask = 1 << bitIndex;
+        const intIndex = this.getBitIntIndex(index);
+        const mask = 1 << index;
 
-        return (this._bytes[byteIndex] & mask) !== 0;
+        return (Bitset._memArray[intIndex] & mask) !== 0;
     }
 
-    public pop(): boolean
+    public and(other: Bitset): void
     {
-        if (this._size <= 0) return false;
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            Bitset._memArray[this._intIndex + i] &= Bitset._memArray[other._intIndex + i];
+        }
+    }
 
-        this.set(this._size - 1, false);
-        this._size -= 1;
+    public or(other: Bitset): void
+    {
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            Bitset._memArray[this._intIndex + i] |= Bitset._memArray[other._intIndex + i];
+        }
+    }
+
+    public xor(other: Bitset): void
+    {
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            Bitset._memArray[this._intIndex + i] ^= Bitset._memArray[other._intIndex + i];
+        }
+    }
+
+    public not(): void
+    {
+        for (let i = 0; i < Bitset._int8Count - 1; i++)
+        {
+            Bitset._memArray[this._intIndex + i] = ~Bitset._memArray[this._intIndex + i];
+        }
+
+        const mask = 0xff >> (Bitset._flagCount % 64);
+
+        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] =
+            ~Bitset._memArray[this._intIndex + Bitset._int8Count - 1];
+
+        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] &= ~mask;
+    }
+
+    public clear(): void
+    {
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            Bitset._memArray[this._intIndex + i] = 0;
+        }
+    }
+
+    public isSubsetOf(other: Bitset): boolean
+    {
+        const checkSet = Bitset.and(this, other);
+
+        if (checkSet.equals(this))
+        {
+            Bitset.return(checkSet);
+            return true;
+        }
+
+        Bitset.return(checkSet);
+        return false;
+    }
+
+    public isSupersetOf(other: Bitset): boolean
+    {
+        return other.isSubsetOf(this);
+    }
+
+    public equals(other: Bitset): boolean
+    {
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            if (Bitset._memArray[this._intIndex + i] !== Bitset._memArray[other._intIndex + i])
+            {
+                return false;
+            }
+        }
 
         return true;
     }
 
-    /**
-     * Sets this to the result of a bitwise "and" operation between this and the provided {@link Bitset}.
-     * This instance inherits the size of the other {@link Bitset}, if it is larger.
-     * @param other
-     */
-    public and(other: Bitset): Bitset
-    {
-        const maxLength = Math.max(this._size, other.size);
-        this.ensureCapacity(maxLength);
-
-        this._setCount = 0;
-
-        const maxByteIndex = ((maxLength / 8) | 0) + 1;
-        for (let i = 0; i < maxByteIndex; i++)
-        {
-            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
-            this._bytes[i] &= otherByte;
-
-            this._setCount += this.countSetBitsInByte(this._bytes[i]);
-        }
-
-        return this;
-    }
-
-    /**
-     * Sets this to the result of a bitwise "or" operation between this and the provided {@link Bitset}.
-     * This instance inherits the size of the other {@link Bitset}, if it is larger.
-     * @param other
-     */
-    public or(other: Bitset): Bitset
-    {
-        const maxLength = Math.max(this.size, other.size);
-        this.ensureCapacity(maxLength);
-
-        this._setCount = 0;
-
-        const maxByteIndex = ((maxLength / 8) | 0) + 1;
-        for (let i = 0; i < maxByteIndex; i++)
-        {
-            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
-            this._bytes[i] |= otherByte;
-
-            this._setCount += this.countSetBitsInByte(this._bytes[i]);
-        }
-
-        return this;
-    }
-
-    /**
-     * Sets this to the result of a bitwise "xor" operation between this and the provided {@link Bitset}.
-     * This instance inherits the size of the other {@link Bitset}, if it is larger.
-     * @param other
-     */
-    public xor(other: Bitset): Bitset
-    {
-        const maxLength = Math.max(this.size, other.size);
-        this.ensureCapacity(maxLength);
-
-        this._setCount = 0;
-
-        const maxByteIndex = ((maxLength / 8) | 0) + 1;
-        for (let i = 0; i < maxByteIndex; i++)
-        {
-            const otherByte = i < other._bytes.length ? other._bytes[i] : 0x0;
-            this._bytes[i] ^= otherByte;
-
-            this._setCount += this.countSetBitsInByte(this._bytes[i]);
-        }
-
-        return this;
-    }
-
-    /**
-     * Sets this to the result of a bitwise "not" operation.
-     * The size of this instance remains the same.
-     */
-    public not(): Bitset
-    {
-        const maxByteIndex = ((this._size / 8) | 0) + 1;
-
-        for (let i = 0; i < maxByteIndex - 1; i++)
-        {
-            this._bytes[i] = ~this._bytes[i];
-        }
-
-        // Last byte needs to be handled separate.
-        const lastByteBitCount = this._size % 8;
-        const mask = (1 << lastByteBitCount) - 1;
-        this._bytes[maxByteIndex] = ~this._bytes[lastByteBitCount];
-        this._bytes[maxByteIndex] &= mask;
-
-        this._setCount = this._size - this._setCount;
-
-        return this;
-    }
-
-    /**
-     * Returns the result of iteratively performing bitwise "and" on the given Bitsets as a new {@link Bitset}.
-     * The resulting {@link Bitset} inherits the size of the largest provided bitset.
-     * @param sets
-     */
-    public static and(...sets: Bitset[]): Bitset
-    {
-        const setsLength = sets.length;
-        if (setsLength === 0) throw new Error("Requires at least one input Bitset");
-
-        let result = new Bitset();
-        result.or(sets[0]);
-
-        for (let i = 1; i < setsLength; i++)
-        {
-            result.and(sets[i]);
-        }
-
-        return result;
-    }
-
-    /**
-     * Returns the result of iteratively performing bitwise "or" on the given Bitsets as a new {@link Bitset}.
-     * The resulting {@link Bitset} inherits the size of the largest provided bitset.
-     * @param sets
-     */
-    public static or(...sets: Bitset[]): Bitset
-    {
-        const setsLength = sets.length;
-        if (setsLength === 0) throw new Error("Requires at least one input Bitset");
-
-        let result = new Bitset();
-
-        for (let i = 0; i < setsLength; i++)
-        {
-            result.or(sets[i]);
-        }
-
-        return result;
-    }
-
-    /**
-     * Returns the result of iteratively performing bitwise "xor" on the given Bitsets as a new {@link Bitset}.
-     * The resulting {@link Bitset} inherits the size of the largest provided bitset.
-     * @param sets
-     */
-    public static xor(...sets: Bitset[]): Bitset
-    {
-        const setsLength = sets.length;
-        if (setsLength === 0) throw new Error("Requires at least one input Bitset");
-
-        let result = new Bitset();
-
-        for (let i = 0; i < setsLength; i++)
-        {
-            result.xor(sets[i]);
-        }
-
-        return result;
-    }
-
-    /**
-     * Checks if this {@link Bitset} is a superset of the provided one.
-     * All bitsets are considered supersets of the null bitset.
-     * @param other
-     */
-    public isSupersetOf(other: Bitset): boolean
-    {
-        const andResult = Bitset.and(this, other);
-
-        return Bitset.equal(other, andResult);
-    }
-
-    /**
-     * Checks if this {@link Bitset} is a subset of the provided one.
-     * The null bitset is considered a subset of every bitset.
-     * @param other
-     */
-    public isSubsetOf(other: Bitset): boolean
-    {
-        const andResult = Bitset.and(this, other);
-
-        return Bitset.equal(this, andResult);
-    }
-
-    /**
-     * Checks if this {@link Bitset} shares any bits with the other.
-     * @param other
-     */
     public overlaps(other: Bitset): boolean
     {
-        return Bitset.and(this, other).setCount !== 0;
-    }
-
-    /**
-     * Checks if this {@link Bitset} is exactly equal to the provided one.
-     * @param other
-     */
-    public equals(other: Bitset): boolean
-    {
-        return Bitset.equal(this, other);
-    }
-
-    /**
-     * Checks the value equality of arbitrarily many {@link Bitset}(s).
-     * @param sets
-     */
-    public static equal(...sets: Bitset[]): boolean
-    {
-        const xorResult = Bitset.xor(...sets);
-
-        let result = true;
-        for (let i = 0; i < xorResult._size; i++)
+        const checkSet = Bitset.and(this, other);
+        for (let i = 0; i < Bitset._int8Count; i++)
         {
-            result = xorResult._bytes[i] === 0x0;
-            if (!result) break;
+            if (Bitset._memArray[checkSet._intIndex + i] !== 0)
+            {
+                Bitset.return(checkSet);
+                return false;
+            }
+        }
+
+        Bitset.return(checkSet);
+        return true;
+    }
+
+    public static and(...bitsets: Bitset[]): Bitset
+    {
+        const result = Bitset.rent();
+        result.not();
+
+        for (let i = 0; i < bitsets.length; i++)
+        {
+            result.and(bitsets[i]);
         }
 
         return result;
     }
 
-    /**
-     * Counts the number of set bits in a byte. Uses Brian Kernighan's algorithm.
-     * @param byte
-     * @private
-     */
-    private countSetBitsInByte(byte: number): number
+    public static or(...bitsets: Bitset[]): Bitset
     {
-        let count = 0;
-        while (byte) {
-            count++;
-            byte &= byte - 1; // Clear the lowest set bit
+        const result = Bitset.rent();
+
+        for (let i = 0; i < bitsets.length; i++)
+        {
+            result.or(bitsets[i]);
         }
-        return count;
+
+        return result;
     }
 
-    /**
-     * Sets all bit values and the size to 0.
-     */
-    public clear(): void
+    public static xor(...bitsets: Bitset[]): Bitset
     {
-        this._bytes.fill(0x0);
-        this._size = 0;
-        this._setCount = 0;
+        const result = Bitset.rent();
+
+        for (let i = 0; i < bitsets.length; i++)
+        {
+            result.xor(bitsets[i]);
+        }
+
+        return result;
     }
 
-    /**
-     * Resets the bitset to the initial state.
-     */
-    public reset(): void
+    private getBitIntIndex(bitIndex: number = 0): number
     {
-        this._buffer = new ArrayBuffer(Bitset._defaultSize);
-        this._bytes = new Uint8Array(this._buffer);
-        this.clear();
+        return this._intIndex + Math.floor(bitIndex / 64);
     }
 
     /**
-     * Ensures this {@link Bitset} has at least the specified capacity in bits.
-     * @param bits
+     * Calculates the static helper values given the desired number of flags to represent.
+     * @param count
+     */
+    public static setFlagCount(count: number): void
+    {
+        Bitset._flagCount = count;
+        Bitset._bitCount = Math.ceil(count / 64) * 64;
+        Bitset._byteCount = Bitset._bitCount / 8;
+        Bitset._int8Count = Bitset._byteCount / 8;
+    }
+
+    /**
+     * Resets the memory, cemetery, and pools.
      * @private
      */
-    private ensureCapacity(bits: number): void
+    private static memReset(): void
     {
-        if (bits > this._size) this._size = bits;
+        Bitset._memBuffer = new ArrayBuffer(1024);
+        Bitset._memArray = new Uint8Array(Bitset._memBuffer);
+        Bitset._cemetery = new Array(1024);
+        Bitset._instancePool = new Array(1024);
+        Bitset._memSize = 0;
+    }
 
-        const requiredBytes = ((bits / 8) | 0) + 1;
-        if (this._buffer.byteLength >= requiredBytes) return;
+    /**
+     * Ensures the {@link _memBuffer} can hold the number of {@link Bitset} instances provided.
+     * @param size
+     * @private
+     */
+    private static ensureCapacity(size: number): void
+    {
+        const bitsetCount = Bitset._memArray.length / Bitset._int8Count;
 
-        const pow2Ceil = Math.ceil(Math.log2(requiredBytes / this._buffer.byteLength));
-        const newLength = this._buffer.byteLength * (2 ** pow2Ceil);
+        if (size <= bitsetCount) return;
 
-        const newBuffer = new ArrayBuffer(newLength);
+        const doublings = Math.ceil(Math.log2(size / bitsetCount));
+        const newCapacity = Bitset._memArray.length * Math.pow(2, doublings);
+
+        const newBuffer = new ArrayBuffer(newCapacity * 8);
         const newArray = new Uint8Array(newBuffer);
 
-        newArray.set(this._bytes, 0);
+        newArray.set(Bitset._memArray, 0);
 
-        this._buffer = newBuffer;
-        this._bytes = newArray;
+        Bitset._memBuffer = newBuffer;
+        Bitset._memArray = newArray;
     }
 
     /**
-     * Returns a string representation of this {@link Bitset}.
-     * The least significant bit prints at the end of the string.
+     * Gets an index for use by a new {@link Bitset}.
+     * @private
      */
-    public toString(): string
+    private static reserveIndex(): number
     {
-        let string = "";
-        for (let i = this._size - 1; i >= 0; i--)
+        const reserved = Bitset._cemetery.pop();
+        if (reserved)
         {
-            string += this.get(i) ? "1" : "0";
+            return reserved;
         }
-        return string || "0";
+
+        Bitset.ensureCapacity(Bitset._memSize + 1);
+        const newReserved = Bitset._memSize;
+        Bitset._memSize++;
+
+        return newReserved;
+    }
+
+    public static rent(): Bitset
+    {
+        const rented = Bitset._instancePool.pop();
+        if (rented) rented.clear();
+
+        return rented ?? new Bitset();
+    }
+
+    public static return(bitset: Bitset): void
+    {
+        Bitset._instancePool.push(bitset);
     }
 }

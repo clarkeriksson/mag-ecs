@@ -1,7 +1,12 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { ISparseSet } from "../util/sparse-set";
-import { DeepReadonly } from "../util/sparse-set";
+import { Bitset } from "../util/bitset";
+import { SparseSet } from "../util/sparse-set";
+import { SparseBitSet } from "../util/sparse-bit-set";
+import { SparseTagSet } from "../util/sparse-tag-set";
+
+import type { DeepReadonly } from "../util/sparse-set";
+import type { ISparseSet } from "../util/sparse-set";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
@@ -9,6 +14,9 @@ export type Constructor<T = any> = { new(...args: any[]): T };
 
 type UnionToArray<T> = T extends any ? T[] : never;
 
+/**
+ * Non-static, non-readonly component type with class instance data.
+ */
 export type ClassComponentType<T extends Constructor, N extends string> = {
     readonly name: N;
     readonly __isClassType: true;
@@ -19,11 +27,17 @@ export type ClassComponentType<T extends Constructor, N extends string> = {
     readonly __readonly: false;
     new (...args: ConstructorParameters<T>): ClassComponentInstance<T, N>;
 }
+/**
+ * Non-static, non-readonly component type instance with class data.
+ */
 export type ClassComponentInstance<T extends Constructor, N extends string> = {
     value: InstanceType<T>;
     readonly type: ClassComponentType<T, N>;
 }
 
+/**
+ * Non-static, non-readonly component type with value data.
+ */
 export type ValueComponentType<T extends Value, N extends string> = {
     readonly name: N;
     readonly __isClassType: false;
@@ -34,11 +48,17 @@ export type ValueComponentType<T extends Value, N extends string> = {
     readonly __readonly: false;
     new (arg: T): ValueComponentInstance<T, N>;
 }
+/**
+ * Non-static, non-readonly component type instance with value data.
+ */
 export type ValueComponentInstance<T extends Value, N extends string> = {
     value: T;
     readonly type: ValueComponentType<T, N>;
 }
 
+/**
+ * Non-static, readonly component type with class instance data.
+ */
 export type ReadonlyClassComponentType<T extends Constructor, N extends string> = {
     readonly name: N;
     readonly __isClassType: true;
@@ -49,11 +69,17 @@ export type ReadonlyClassComponentType<T extends Constructor, N extends string> 
     readonly __readonly: true;
     new (...args: ConstructorParameters<T>): ReadonlyClassComponentInstance<T, N>;
 }
+/**
+ * Non-static, readonly component type instance with class instance data.
+ */
 export type ReadonlyClassComponentInstance<T extends Constructor, N extends string> = {
     readonly value: DeepReadonly<InstanceType<T>>;
     readonly type: ReadonlyClassComponentType<T, N>;
 }
 
+/**
+ * Non-static, readonly component type with value data.
+ */
 export type ReadonlyValueComponentType<T extends Value, N extends string> = {
     readonly name: N;
     readonly __isClassType: false;
@@ -64,11 +90,17 @@ export type ReadonlyValueComponentType<T extends Value, N extends string> = {
     readonly __readonly: true;
     new (arg: T): ReadonlyValueComponentInstance<T, N>;
 }
+/**
+ * Non-static, readonly component type instance with value data.
+ */
 export type ReadonlyValueComponentInstance<T extends Value, N extends string> = {
     readonly value: DeepReadonly<T>;
     readonly type: ReadonlyValueComponentType<T, N>;
 }
 
+/**
+ * Static, non-readonly component type with class instance data.
+ */
 export type StaticClassComponentType<T extends Constructor, N extends string> = {
     readonly name: N;
     readonly __isClassType: true;
@@ -79,11 +111,17 @@ export type StaticClassComponentType<T extends Constructor, N extends string> = 
     readonly __readonly: false;
     new (...args: ConstructorParameters<T>): StaticClassComponentInstance<T, N>;
 }
+/**
+ * Static, non-readonly component type instance with class instance data.
+ */
 export type StaticClassComponentInstance<T extends Constructor, N extends string> = {
     value: InstanceType<T>;
     readonly type: StaticClassComponentType<T, N>;
 }
 
+/**
+ * Static, non-readonly component type with value data.
+ */
 export type StaticValueComponentType<T extends Value, N extends string> = {
     readonly name: N;
     readonly __isClassType: false;
@@ -94,11 +132,17 @@ export type StaticValueComponentType<T extends Value, N extends string> = {
     readonly __readonly: false;
     new (arg: T): StaticValueComponentInstance<T, N>;
 }
+/**
+ * Static, non-readonly component type instance with value data.
+ */
 export type StaticValueComponentInstance<T extends Value, N extends string> = {
     value: T;
     readonly type: StaticValueComponentType<T, N>;
 }
 
+/**
+ * Static, readonly component type with class instance data.
+ */
 export type StaticReadonlyClassComponentType<T extends Constructor, N extends string> = {
     readonly name: N;
     readonly __isClassType: true;
@@ -109,11 +153,17 @@ export type StaticReadonlyClassComponentType<T extends Constructor, N extends st
     readonly __readonly: true;
     new (...args: ConstructorParameters<T>): StaticReadonlyClassComponentInstance<T, N>;
 }
+/**
+ * Static, readonly component type instance with class instance data.
+ */
 export type StaticReadonlyClassComponentInstance<T extends Constructor, N extends string> = {
     readonly value: DeepReadonly<InstanceType<T>>;
     readonly type: StaticReadonlyClassComponentType<T, N>;
 }
 
+/**
+ * Static, readonly component type with value data.
+ */
 export type StaticReadonlyValueComponentType<T extends Value, N extends string> = {
     readonly name: N;
     readonly __isClassType: false;
@@ -124,11 +174,17 @@ export type StaticReadonlyValueComponentType<T extends Value, N extends string> 
     readonly __readonly: true;
     new (arg: T): StaticReadonlyValueComponentInstance<T, N>;
 }
+/**
+ * Static, readonly component type instance with value data.
+ */
 export type StaticReadonlyValueComponentInstance<T extends Value, N extends string> = {
     readonly value: DeepReadonly<T>;
     readonly type: StaticReadonlyValueComponentType<T, N>;
 }
 
+/**
+ * Type resolving the generic type parameters to a specific 'component-type' type.
+ */
 export type ComponentType<T extends Constructor | Value, N extends string, Static extends boolean, Readonly extends boolean> =
     T extends Constructor
         ? (
@@ -155,6 +211,10 @@ export type ComponentType<T extends Constructor | Value, N extends string, Stati
                 ) : never
         ) : never;
 
+/**
+ * Type resolving the generic type parameters to a specific non-static context 'component-type' type.
+ * This boils down to emitting static types as readonly, even if they would not be in a static context.
+ */
 export type StaticComponentType<T extends Constructor | Value, N extends string, Readonly extends boolean> =
     T extends Constructor
         ? Readonly extends true
@@ -166,6 +226,9 @@ export type StaticComponentType<T extends Constructor | Value, N extends string,
             : Readonly extends false ? StaticValueComponentType<T, N> : never
         : never;
 
+/**
+ * Type resolving the generic type parameters to a specific 'component-instance' type.
+ */
 export type ComponentInstance<T extends Constructor | Value, N extends string, Static extends boolean, Readonly extends boolean> =
     T extends Constructor
         ? (
@@ -192,8 +255,15 @@ export type ComponentInstance<T extends Constructor | Value, N extends string, S
                     ) : never
             ) : never;
 
+/**
+ * Type resolving the generic 'component-type' type parameter to a specific 'component-instance' type.
+ */
 export type ComponentTypeInstance<T extends ComponentType<any, any, any, any>> = InstanceType<T>;
 
+/**
+ * Type resolving the generic type parameters to a specific non-static-query context 'component-type' type.
+ * This essentially emits any static 'component-types' to readonly versions.
+ */
 export type QueryComponentType<T extends Constructor | Value, N extends string, Static extends boolean, Readonly extends boolean> =
     T extends Constructor
         ? (
@@ -216,20 +286,35 @@ export type QueryComponentType<T extends Constructor | Value, N extends string, 
                     ) : never
             ) : never;
 
+/**
+ * Type resolving the generic query-context 'component-type' type parameter to a specific 'component-instance' type.
+ */
 export type QueryComponentTypeInstance<T extends QueryComponentType<any, any, any, any>> = InstanceType<T>;
 
+/**
+ * Type resolving array types with 'component-type' data to a tuple type of 'component-instance' types, corresponding
+ * to the input 'component-types' in the order they are provided.
+ */
 export type ComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
     [K in keyof T]: T[K] extends ComponentType<any, any, any, any>
         ? ComponentTypeInstance<T[K]>
         : never;
 }
 
+/**
+ * Type resolving array types with 'component-type' data to a tuple type of non-static context 'component-instance'
+ * types, corresponding to the input 'component-types' in the order they are provided.
+ */
 export type StaticComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
     [K in keyof T]: T[K] extends StaticComponentType<any, any, any>
         ? ComponentTypeInstance<T[K]>
         : never;
 }
 
+/**
+ * Type resolving array types with 'component-type' data to a tuple type of non-static-query context
+ * 'component-instance' types, corresponding to the input 'component-types' in the order they are provided.
+ */
 export type QueryComponentInstanceTuple<T extends readonly ComponentType<any, any, any, any>[]> = {
     [K in keyof T]: T[K] extends ComponentType<any, any, true, false>
         ? ReadonlyComponentInstanceFrom<ComponentTypeInstance<T[K]>>
@@ -238,6 +323,10 @@ export type QueryComponentInstanceTuple<T extends readonly ComponentType<any, an
             : never;
 }
 
+/**
+ * Type resolving the generic type parameter to it's corresponding readonly version, if it is a component instance
+ * type.
+ */
 export type ReadonlyComponentInstanceFrom<T> =
     T extends ComponentInstance<any, any, any, false>
         ? T extends ClassComponentInstance<infer CT, infer CN> ? ReadonlyClassComponentInstance<CT, CN>
@@ -250,150 +339,30 @@ export type ReadonlyComponentInstanceFrom<T> =
         : never;
 
 /**
- * Non-nullish primitive types.
+ * Non-nullish primitive types used in mag-ecs.
  */
 export type ValuePrimitive = number | string | boolean;
+/**
+ * Array types with non-nullish primitive type data used in mag-ecs.
+ */
 export type ValueArray = UnionToArray<ValuePrimitive>;
+/**
+ * Union of primitive and array value types.
+ */
 export type Value = ValuePrimitive | ValueArray;
+/**
+ * Restricted object type where any leaf properties must be primitives or arrays of primitives.
+ */
 export type ValueObject = { [key: string]: Value | ValueObject };
 
+/**
+ * Type resolving to the instance type of the generic type parameter.
+ */
 export type DataType<T extends Constructor | Value> =
     T extends Constructor ? InstanceType<T> : T;
 
-// /**
-//  * Component type with a class instance as the data value.
-//  */
-// export type ClassComponentType<T extends Constructor, N extends string> = {
-//     readonly name: N;
-//     readonly __isClassType: true;
-//     readonly __isValueType: false;
-//     readonly __isBooleanType: false;
-//     readonly __isTagType: false;
-//     readonly __static: false;
-//     new (...args: ConstructorParameters<T>): ClassComponentInstance<T, N>;
-// };
-//
-// export type StaticClassComponentType<T extends Constructor, N extends string> = {
-//     readonly name: N;
-//     readonly __isClassType: true;
-//     readonly __isValueType: false;
-//     readonly __isBooleanType: false;
-//     readonly __isTagType: false;
-//     readonly __static: true;
-//     new (...args: ConstructorParameters<T>): StaticClassComponentInstance<T, N>;
-// }
-//
-// /**
-//  * Component type with a non-nullish primitive as the data value.
-//  */
-// export type ValueComponentType<T extends Value, N extends string> = {
-//     readonly name: N;
-//     readonly __isClassType: false;
-//     readonly __isValueType: true;
-//     readonly __isBooleanType: boolean;
-//     readonly __isTagType: boolean;
-//     readonly __static: false;
-//     new (arg: T): ValueComponentInstance<T, N>;
-// };
-//
-// export type StaticValueComponentType<T extends Value, N extends string> = {
-//     readonly name: N;
-//     readonly __isClassType: false;
-//     readonly __isValueType: true;
-//     readonly __isBooleanType: boolean;
-//     readonly __isTagType: boolean;
-//     readonly __static: true;
-//     new (arg: T): StaticValueComponentInstance<T, N>;
-// }
-//
-// export type ComponentType<T extends Constructor | Value, N extends string> =
-//     T extends Constructor
-//         ? ClassComponentType<T, N>
-//         : T extends Value
-//         ? ValueComponentType<T, N>
-//         : never;
-//
-// export type StaticComponentType<T extends Constructor | Value, N extends string> =
-//     T extends Constructor
-//         ? StaticClassComponentType<T, N>
-//         : T extends Value
-//         ? StaticValueComponentType<T, N>
-//         : never;
-//
-// export type AnyComponentType<T extends Constructor | Value, N extends string> =
-//     ComponentType<T, N> | StaticComponentType<T, N>;
-//
-// export type ClassComponentInstance<T extends Constructor, N extends string> = {
-//     value: InstanceType<T>;
-//     readonly type: ClassComponentType<T, N>;
-// };
-//
-// export type ValueComponentInstance<T extends Value, N extends string> = {
-//     value: T;
-//     readonly type: ValueComponentType<T, N>;
-// };
-//
-// export type StaticClassComponentInstance<T extends Constructor, N extends string> = {
-//     readonly value: DeepReadonly<InstanceType<T>>;
-//     readonly type: StaticClassComponentType<T, N>;
-// }
-//
-// export type StaticValueComponentInstance<T extends Value, N extends string> = {
-//     readonly value: DeepReadonly<T>;
-//     readonly type: StaticValueComponentType<T, N>;
-// }
-//
-// export type ComponentInstance<T extends Constructor | Value, N extends string> =
-//     T extends Constructor
-//         ? ClassComponentInstance<T, N>
-//         : T extends Value
-//         ? ValueComponentInstance<T, N>
-//         : never;
-//
-// export type StaticComponentInstance<T extends Constructor | Value, N extends string> =
-//     T extends Constructor
-//         ? StaticClassComponentInstance<T, N>
-//         : T extends Value
-//         ? StaticValueComponentInstance<T, N>
-//         : never;
-//
-// export type AnyComponentInstance<T extends Constructor | Value, N extends string> =
-//     ComponentInstance<T, N> | StaticComponentInstance<T, N>;
-//
-// export type ComponentInstanceTuple<T extends readonly AnyComponentType<Constructor | Value, string>[]> = {
-//     [K in keyof T]: T[K] extends ClassComponentType<infer C, infer CN>
-//         ? ClassComponentInstance<C, CN>
-//         : T[K] extends ValueComponentType<infer V, infer VN>
-//             ? ValueComponentInstance<V, VN>
-//             : T[K] extends StaticClassComponentType<infer SC, infer SCN>
-//                 ? StaticClassComponentInstance<SC, SCN>
-//                 : T[K] extends StaticValueComponentType<infer SV, infer SVN>
-//                     ? StaticValueComponentInstance<SV, SVN>
-//                     : never;
-// }
-//
-// /*
-// export type ComponentInstanceTuple<T extends readonly ComponentType<Constructor | Value, string>[]> = {
-//     [K in keyof T]: T[K] extends ClassComponentType<infer D, infer N>
-//         ? ClassComponentInstance<D, N>
-//         : T[K] extends ValueComponentType<infer V, infer VN>
-//             ? ValueComponentInstance<V, VN>
-//             : never;
-// }
-// */
-//
-// export type ComponentValueTuple<T extends readonly ComponentType<Constructor | Value, string>[]> = {
-//     [K in keyof T]: T[K] extends ComponentType<infer D, infer N>
-//         ? ComponentInstance<D, N>['value']
-//         : never;
-// }
-
-import {Bitset} from "../util/bitset";
-import { SparseSet } from "../util/sparse-set";
-import {SparseBitSet} from "../util/sparse-bit-set";
-import {SparseTagSet} from "../util/sparse-tag-set";
 /**
- * Pseudo-static class used to access and automatically manage component-type information.
+ * Class used to access and automatically manage component-type information.
  * @class
  */
 export class Component<CmpType extends Constructor | Value, CmpName extends string, CmpStatic extends boolean, CmpReadonly extends boolean>
@@ -549,6 +518,8 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
      * @param name
      * @param isStatic
      * @param isReadonly
+     * @param isBoolean
+     * @param isTag
      */
     private static valueComponentBuilder<T extends Value, N extends string, S extends boolean, R extends boolean>(name: N, isStatic: S, isReadonly: R, isBoolean: boolean, isTag: boolean)
     {
@@ -763,7 +734,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
      */
     public static bitsetFromTypes(...types: ComponentType<any, string, boolean, boolean>[]): Bitset
     {
-        const result = new Bitset();
+        const result = Bitset.rent();
         for (const type of types)
         {
             result.set(Component.T(type).id, true);
@@ -777,7 +748,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
      */
     public static bitsetFromComponents<T extends ComponentTypeInstance<ComponentType<any, string, boolean, boolean>>[]>(...components: T): Bitset
     {
-        const result = new Bitset();
+        const result = Bitset.rent();
         for (let i = 0; i < components.length; i++)
         {
             const component = components[i];

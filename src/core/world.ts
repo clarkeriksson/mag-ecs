@@ -1,12 +1,20 @@
 // noinspection JSUnusedGlobalSymbols
-import {QueryDefinition} from "./query-definition";
-import {Bitset} from "../util/bitset";
-import {System} from "./system";
-import {TimeContext} from "../util/time-context";
+import { QueryDefinition } from "./query-definition";
+import { Bitset } from "../util/bitset";
+import { System } from "./system";
+import { TimeContext } from "../util/time-context";
+import { Component } from "./component";
+import { ArrayPool } from "../util/array-pool";
 
-import {Component, QueryComponentInstanceTuple, StaticComponentType} from "./component";
-import type { ComponentTypeInstance, ComponentType, Tupled, ComponentInstanceTuple, StaticComponentInstanceTuple, Constructor, Value } from "./component";
-import {SparseTagSet} from "../util/sparse-tag-set";
+import type {
+    ComponentTypeInstance,
+    ComponentType,
+    Tupled,
+    StaticComponentInstanceTuple,
+    QueryComponentInstanceTuple,
+    Constructor,
+    Value
+} from "./component";
 
 /**
  * @class World
@@ -14,13 +22,19 @@ import {SparseTagSet} from "../util/sparse-tag-set";
  */
 class World
 {
+    private _arrayPool: ArrayPool<any> =  new ArrayPool();
+
     /**
      * Holds all {@link World} instances.
      * @private
      */
     private static readonly _statics: World[] = [];
 
-    private readonly _bases: Record<string, number> = { "none": -1 };
+    /**
+     * Maps strings to static entity ids.
+     * @private
+     */
+    private readonly _baseNameToId: Record<string, number> = { "none": -1 };
 
     /**
      * Static incrementing value used for {@link World} ids.
@@ -34,13 +48,23 @@ class World
     public readonly id: number;
 
     /**
-     * Array of entity {@link Bitset}(s), where index corresponds to entity id. Empty spots are null.
+     * Array of entity {@link Bitset}(s), where index corresponds to entity id.
      * @private
      */
     private readonly _entities: (Bitset | undefined)[];
 
+    private readonly _compoundEntities: (Bitset | undefined)[];
+
+    /**
+     * Array of static entity inheritance ids, where index corresponds to non-static entity id.
+     * @private
+     */
     private readonly _inheritance: (number | undefined)[];
 
+    /**
+     * Array of static entity {@link Bitset}(s), where index corresponds to static entity id.
+     * @private
+     */
     private readonly _staticEntities: (Bitset | undefined)[];
 
     /**
@@ -49,6 +73,10 @@ class World
      */
     private readonly _cemetery: number[];
 
+    /**
+     * Array of unused static entity ids, for static entity id recycling.
+     * @private
+     */
     private readonly _staticCemetery: number[];
 
     /**
@@ -63,12 +91,21 @@ class World
      */
     private readonly _queryCacheDirty: Map<QueryDefinition, boolean>;
 
+    /**
+     * Cache containing lists of static entity ids corresponding to previously used {@link QueryDefinition}(s).
+     * @private
+     */
     private readonly _staticQueryCache: Map<QueryDefinition, number[]>;
 
+    /**
+     * Map translating previously used static {@link QueryDefinition}(s) to a bool representing if their cache is
+     * dirty.
+     * @private
+     */
     private readonly _staticQueryCacheDirty: Map<QueryDefinition, boolean>;
 
     /**
-     * This {@link World}'s registered systems.
+     * This {@link World}'s registered {@link System}(s) in execution order.
      * @private
      */
     private readonly _systems: System[];
@@ -81,6 +118,8 @@ class World
     {
         this.id = World._nextId;
         World._nextId++;
+
+        this._compoundEntities = [];
 
         this._entities = [];
         this._cemetery = [];
@@ -139,7 +178,24 @@ class World
      */
     public base(name: string): number
     {
-        return this._bases[name] || -1;
+        if (this._baseNameToId[name] >= 0)
+        {
+            return this._baseNameToId[name];
+        }
+        return -1;
+    }
+
+    public getSignature(entity: number, update: boolean = false): Bitset
+    {
+        if (this._compoundEntities[entity] !== undefined && !update) return this._compoundEntities[entity];
+
+        const instanceSignature = this._entities[entity] ?? Bitset.null;
+        const prototype = this._inheritance[entity];
+        const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype]!;
+
+        const result = Bitset.or(instanceSignature, staticSignature);
+        this._compoundEntities[entity] = result;
+        return result;
     }
 
     /**
@@ -178,7 +234,7 @@ class World
      * @param from
      * @param components
      */
-    public create(from: number, ...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, false, boolean>>[]): number
+    public create(from: number, ...components: ComponentTypeInstance<ComponentType<Constructor | Value, string, false, true | false>>[]): number
     {
         let entity = this._cemetery.pop();
         if (entity === undefined)
@@ -196,11 +252,16 @@ class World
             this.addComponentUnsafe(entity, component);
         }
 
-        const bitset = Component.bitsetFromComponents(...components);
+        const instanceSignature = Component.bitsetFromComponents(...components);
+        const prototype = this._inheritance[entity];
+        const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype] ?? Bitset.null;
 
-        this.dirtyQueriesMatching(bitset)
+        const bitset = Bitset.or(instanceSignature, staticSignature);
 
-        this._entities[entity] = bitset;
+        this.dirtyQueriesMatching(bitset);
+
+        this._entities[entity] = instanceSignature;
+        this._compoundEntities[entity] = bitset;
 
         return entity;
     }
@@ -213,7 +274,7 @@ class World
             entity = this._staticEntities.length;
         }
 
-        if (this._bases[name] !== undefined) throw new Error('Attempted reassignment of a static base entity.');
+        if (this._baseNameToId[name] !== undefined) throw new Error('Attempted reassignment of a static base entity.');
 
         for (const component of components)
         {
@@ -222,11 +283,11 @@ class World
 
         const bitset = Component.bitsetFromComponents(...components);
 
-        this.dirtyQueriesMatching(bitset);
+        this.dirtyStaticQueriesMatching(bitset);
 
         this._staticEntities[entity] = bitset;
 
-        this._bases[name] = entity;
+        this._baseNameToId[name] = entity;
 
         return entity;
     }
@@ -240,9 +301,10 @@ class World
     {
         Component.set(entity, component);
 
-        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(component.type as ComponentType<T, string, boolean, boolean>).id, true);
-        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this.getSignature(entity, true);
+        this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
 
         return entity;
     }
@@ -267,9 +329,10 @@ class World
     {
         const removed = Component.removeComponent(entity, type);
 
-        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(type).id, false);
-        this.dirtyQueriesMatching(this._entities[entity] ?? Bitset.null);
+        this.getSignature(entity, true);
+        this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
 
         return removed !== null;
     }
@@ -321,21 +384,26 @@ class World
      */
     public get<T extends readonly ComponentType<Constructor | Value, string, boolean, boolean>[]>(types: Tupled<T>, entity: number): QueryComponentInstanceTuple<T>
     {
-        const instanceSignature = Component.bitsetFromTypes(...types);
+        const typesSignature = Component.bitsetFromTypes(...types);
         const prototype = this._inheritance[entity];
-        const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype] ?? Bitset.null;
 
-        const signature = Bitset.or(instanceSignature, staticSignature);
+        //const signature = Bitset.or(instanceSignature, staticSignature);
 
-        if (!this._entities[entity]?.isSupersetOf(signature)) throw new Error();
+        //console.log(this.getSignature(entity).toString(), typesSignature.toString());
 
-        let result= new Array(types.length);
+        if (!this.getSignature(entity).isSupersetOf(typesSignature)) throw new Error();
+
+        //console.log(signature);
+
+        let result = this._arrayPool.rent(types.length);
         for (let i = 0; i < types.length; i++)
         {
             const type = types[i];
-            result[i] = Component.getUnchecked(instanceSignature.get(Component.T(type).id) ? entity : prototype!, type);
+            //console.log(Component.T(type));
+            result[i] = Component.getUnchecked(this._entities[entity]?.get(Component.T(type).id) ? entity : prototype!, type);
         }
 
+        Bitset.return(typesSignature);
         return result as QueryComponentInstanceTuple<T>;
     }
 
@@ -351,6 +419,7 @@ class World
             result[i] = Component.getUnchecked(entity, type);
         }
 
+        Bitset.return(signature);
         return result as StaticComponentInstanceTuple<T>;
     }
 
@@ -400,7 +469,12 @@ class World
 
         for (let i = 0; i < this._entities.length; i++)
         {
-            const entitySignature = this._entities[i] ?? Bitset.null;
+            //const instanceSignature = this._entities[i] ?? Bitset.null;
+            //const prototype = this._inheritance[i];
+            //const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype]!;
+
+            const entitySignature = this._compoundEntities[i]!;
+
             if (queryDefinition.satisfiedBy(entitySignature)) newQueryResult.push(i);
         }
 
@@ -433,7 +507,14 @@ class World
         for (const entity of entities)
         {
             const components = this.getStatic(queryDef.paramTypes, entity);
-            callback(...components as StaticComponentInstanceTuple<T>)
+            try
+            {
+                callback(...components as StaticComponentInstanceTuple<T>)
+            }
+            finally
+            {
+                this._arrayPool.return(components);
+            }
         }
     }
 
@@ -444,18 +525,34 @@ class World
      */
     public query<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: QueryComponentInstanceTuple<T>) => void): void
     {
+        //console.log(queryDefinition);
+
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
             this.refreshQuery(queryDefinition);
+            //console.log(queryDefinition);
         }
 
+        //console.log(queryDefinition);
+
         const entities = this._queryCache.get(queryDefinition)!;
+
+        //console.log(entities);
 
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(...components as QueryComponentInstanceTuple<T>);
+            try
+            {
+                callback(...components as QueryComponentInstanceTuple<T>);
+            }
+            finally
+            {
+                this._arrayPool.return(components);
+            }
         }
+
+        //console.log(this._arrayPool.length);
     }
 
     /**
@@ -475,7 +572,14 @@ class World
         for (const entity of entities)
         {
             const components = this.get(queryDefinition.paramTypes, entity);
-            callback(entity, ...components as QueryComponentInstanceTuple<T>);
+            try
+            {
+                callback(entity, ...components as QueryComponentInstanceTuple<T>);
+            }
+            finally
+            {
+                this._arrayPool.return(components);
+            }
         }
     }
 
@@ -491,7 +595,14 @@ class World
         for (const entity of entities)
         {
             const components = this.getStatic(queryDef.paramTypes, entity);
-            callback(entity, ...components as StaticComponentInstanceTuple<T>);
+            try
+            {
+                callback(entity, ...components as StaticComponentInstanceTuple<T>);
+            }
+            finally
+            {
+                this._arrayPool.return(components);
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { type Constructor } from "./component";
+import type { Constructor } from "./component";
 
 /**
  * A utility type describing a function taking in event data of type T and returning void.

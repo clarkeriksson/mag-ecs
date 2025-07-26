@@ -189,6 +189,8 @@ class World
     {
         if (this._compoundEntities[entity] !== undefined && !update) return this._compoundEntities[entity];
 
+        Bitset.return(this._compoundEntities[entity] as Bitset);
+
         const instanceSignature = this._entities[entity] ?? Bitset.null;
         const prototype = this._inheritance[entity];
         const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype]!;

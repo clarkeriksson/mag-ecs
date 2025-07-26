@@ -97,8 +97,9 @@ describe("bench", () => {
             acc.value.ax += 0.1;
             if (season.value === 'winter') count++;
         });
+        //console.log(count);
     }, {
-        warmupIterations: 0,
-        iterations: 1,
+        warmupIterations: 100,
+        iterations: 100,
     });
 });

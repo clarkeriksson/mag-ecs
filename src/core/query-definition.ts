@@ -146,10 +146,20 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
         if (this._withNone.overlaps(signature)) return false;
 
         // With One Check
-        if (this._withOne.setFlagCount !== 0 && Bitset.and(this._withOne, signature).setFlagCount !== 1) return false;
+        const withOneAnd = Bitset.and(this._withOne, signature);
+        if (this._withOne.setFlagCount !== 0 && withOneAnd.setFlagCount !== 1)
+        {
+            Bitset.return(withOneAnd);
+            return false;
+        }
 
         // With Some Check
-        if (this._withSome.setFlagCount !== 0 && Bitset.and(this._withSome, signature).setFlagCount === 0) return false;
+        const withSomeAnd = Bitset.and(this._withSome, signature);
+        if (this._withSome.setFlagCount !== 0 && withSomeAnd.setFlagCount === 0)
+        {
+            Bitset.return(withSomeAnd);
+            return false;
+        }
 
         // With All Check
         return signature.isSupersetOf(this._withAll);

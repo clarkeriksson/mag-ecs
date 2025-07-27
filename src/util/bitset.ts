@@ -240,6 +240,10 @@ export class Bitset
         }
     }
 
+    /**
+     * Copies the value of this {@link Bitset} to the provided {@link Bitset}.
+     * @param other The {@link Bitset} to copy to.
+     */
     public copyTo(other: Bitset): void
     {
         for (let i = 0; i < Bitset._int8Count; i++)
@@ -447,6 +451,9 @@ export class Bitset
         Bitset._instancePool.push(bitset);
     }
 
+    /**
+     * Returns a string representation of this {@link Bitset} instance.
+     */
     public toString(): string
     {
         let string = "";

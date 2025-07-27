@@ -4,7 +4,7 @@ export default defineConfig({
     test: {
         environment: "node",
         browser: {
-            enabled: true,
+            enabled: false,
             name: 'chromium', // or 'firefox', 'webkit'
             provider: 'playwright', // or 'webdriverio', 'preview'
         },

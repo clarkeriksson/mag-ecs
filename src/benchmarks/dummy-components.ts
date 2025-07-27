@@ -51,21 +51,29 @@ class PlacementRules {
         this.season = ["spring", "summer", "fall", "winder"][Math.floor(Math.random() * 3.99)];
     }
 }
-const CPlacementRules = Component.createStaticReadonlyClassComponent(PlacementRules, "CPlacementRules");
+const CPlacementRules =
+    Component.createStaticReadonlyClassComponent(PlacementRules, "CPlacementRules");
 
-const CAcceleration = Component.createClassComponent(Acceleration, "Acceleration");
+const CAcceleration =
+    Component.createClassComponent(Acceleration, "Acceleration");
 
-const CGameId = Component.createStaticReadonlyValueComponent<number, "CGameId">("CGameId");
+const CGameId =
+    Component.createStaticReadonlyValueComponent<number, "CGameId">("CGameId");
 
-const CSource = Component.createStaticValueComponent<string, "CSource">("CSource");
+const CSource =
+    Component.createStaticValueComponent<string, "CSource">("CSource");
 
-const COutdoorSeason = Component.createStaticValueComponent<string, "COutdoorSeason">("COutdoorSeason");
+const COutdoorSeason =
+    Component.createStaticValueComponent<string, "COutdoorSeason">("COutdoorSeason");
 
-const CSeason = Component.createValueComponent<string, "CSeason">("CSeason");
+const CSeason =
+    Component.createValueComponent<string, "CSeason">("CSeason");
 
-const CBoolean = Component.createValueComponent<boolean, "CBoolean">("CBoolean", { isBoolean: true, isTag: false });
+const CBoolean =
+    Component.createValueComponent<boolean, "CBoolean">("CBoolean", { isBoolean: true, isTag: false });
 
-const CTag = Component.createValueComponent<true, "CTag">("CTag", { isTag: true, isBoolean: false });
+const CTag =
+    Component.createValueComponent<true, "CTag">("CTag", { isTag: true, isBoolean: false });
 
 export {
     CPosition,

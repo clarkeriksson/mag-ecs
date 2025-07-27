@@ -185,11 +185,17 @@ class World
         return -1;
     }
 
-    public getSignature(entity: number, update: boolean = false): Bitset
+    public getSignature(entity: number): Bitset
     {
-        if (this._compoundEntities[entity] !== undefined && !update) return this._compoundEntities[entity];
+        if (this._compoundEntities[entity] !== undefined) return this._compoundEntities[entity];
+        throw new Error(`Cannot get signature for ${this._compoundEntities[entity]}`);
+    }
 
-        Bitset.return(this._compoundEntities[entity] as Bitset);
+    public updateSignature(entity: number): Bitset
+    {
+        if (this._compoundEntities[entity] === undefined) throw new Error("Compound entity isn't defined.");
+
+        Bitset.return(this._compoundEntities[entity]);
 
         const instanceSignature = this._entities[entity] ?? Bitset.null;
         const prototype = this._inheritance[entity];
@@ -197,6 +203,7 @@ class World
 
         const result = Bitset.or(instanceSignature, staticSignature);
         this._compoundEntities[entity] = result;
+
         return result;
     }
 
@@ -307,7 +314,7 @@ class World
 
         this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(component.type as ComponentType<T, string, boolean, boolean>).id, true);
-        this.getSignature(entity, true);
+        this.updateSignature(entity);
         this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
 
         return entity;
@@ -320,6 +327,14 @@ class World
         this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
         this._staticEntities[entity]?.set(Component.T(component.type as ComponentType<T, string, true, boolean>).id, true);
         this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
+
+        for (let i = 0; i < this._inheritance.length; i++)
+        {
+            if (this._inheritance[i] === entity)
+            {
+                this.updateSignature(entity);
+            }
+        }
 
         return entity;
     }
@@ -335,7 +350,7 @@ class World
 
         this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
         this._entities[entity]?.set(Component.T(type).id, false);
-        this.getSignature(entity, true);
+        this.updateSignature(entity);
         this.dirtyQueriesMatching(this._compoundEntities[entity] ?? Bitset.null);
 
         return removed !== null;
@@ -348,6 +363,14 @@ class World
         this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
         this._staticEntities[entity]?.set(Component.T(type).id, false);
         this.dirtyStaticQueriesMatching(this._staticEntities[entity] ?? Bitset.null);
+
+        for (let i = 0; i < this._inheritance.length; i++)
+        {
+            if (this._inheritance[i] === entity)
+            {
+                this.updateSignature(entity);
+            }
+        }
 
         return removed !== null;
     }
@@ -391,20 +414,12 @@ class World
         const typesSignature = Component.bitsetFromTypes(...types);
         const prototype = this._inheritance[entity];
 
-        //const signature = Bitset.or(instanceSignature, staticSignature);
-
-        //console.log(this.getSignature(entity).toString(), typesSignature.toString());
-
-        //console.log(typesSignature.toString());
         if (!this.getSignature(entity).isSupersetOf(typesSignature)) throw new Error();
-
-        //console.log(signature);
 
         let result = this._arrayPool.rent(types.length);
         for (let i = 0; i < types.length; i++)
         {
             const type = types[i];
-            //console.log(Component.T(type));
             result[i] = Component.getUnchecked(this._entities[entity]?.get(Component.T(type).id) ? entity : prototype!, type);
         }
 
@@ -474,10 +489,6 @@ class World
 
         for (let i = 0; i < this._entities.length; i++)
         {
-            //const instanceSignature = this._entities[i] ?? Bitset.null;
-            //const prototype = this._inheritance[i];
-            //const staticSignature = (prototype === undefined) ? Bitset.null : this._staticEntities[prototype]!;
-
             const entitySignature = this._compoundEntities[i]!;
 
             if (queryDefinition.satisfiedBy(entitySignature)) newQueryResult.push(i);
@@ -530,19 +541,12 @@ class World
      */
     public query<T extends ComponentType<any, string, boolean, boolean>[]>(queryDefinition: QueryDefinition<T>, callback: (...components: QueryComponentInstanceTuple<T>) => void): void
     {
-        //console.log(queryDefinition);
-
         if (this._queryCacheDirty.get(queryDefinition) ?? true)
         {
             this.refreshQuery(queryDefinition);
-            //console.log(queryDefinition);
         }
 
-        //console.log(queryDefinition._withAll.toString());
-
         const entities = this._queryCache.get(queryDefinition)!;
-
-        //console.log(entities);
 
         for (const entity of entities)
         {
@@ -556,8 +560,6 @@ class World
                 this._arrayPool.return(components);
             }
         }
-
-        //console.log(this._arrayPool.length);
     }
 
     /**
@@ -613,21 +615,3 @@ class World
 }
 
 export { World };
-
-/*
-const test = new World();
-
-const Type1 = Component.register<string>("Type1");
-class Test2 {test2 = true;}
-const Type2 = Component.register<Test2>("Type2");
-class Test3 {test3 = true;}
-const Type3 = Component.register<Test3>("Type3");
-
-const Type4 = Component.register<number>("Type4");
-
-const def = new QueryDefinition()
-    .withAll(Type1, Type3, Type4)
-    .withNone(Type2);
-
-test.query(def, (t1, t3, t4) => {});
-*/

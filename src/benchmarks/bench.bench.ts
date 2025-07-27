@@ -16,9 +16,6 @@ import {System, SystemContext} from "../core/system";
 
 describe("bench", () => {
     const world = new World();
-    // Creating entities.
-
-    // Defining some static entities.
 
     const staticEntity0 = world.createStatic(
         "StaticEntity0",
@@ -61,12 +58,7 @@ describe("bench", () => {
             (Math.random() > 0.4) ? new CPosition() : undefined,
         ].filter(v => v !== undefined);
         const result = world.create(world.base(whichBase), ...optionalComponents);
-        //console.log(world.get([COutdoorSeason], result));
     }
-
-    //console.log(process.memoryUsage());
-
-    let queriedCounts = [0, 0, 0]
 
     // COutdoorSeason
     // CSource
@@ -97,7 +89,6 @@ describe("bench", () => {
             acc.value.ax += 0.1;
             if (season.value === 'winter') count++;
         });
-        //console.log(count);
     }, {
         warmupIterations: 100,
         iterations: 100,

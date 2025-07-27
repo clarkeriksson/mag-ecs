@@ -11,10 +11,6 @@ import {Component} from "./component";
  */
 export class QueryDefinition<T extends readonly ComponentType<any, string, any, any>[] = ComponentType<any, string, any, any>[]>
 {
-    private static readonly _flags: Record<Uppercase<string>, number> = {
-        "STATIC": 0,
-    };
-
     /**
      * Internal representation of {@link paramTypes}.
      * @private
@@ -77,7 +73,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
     /**
      * Modifies the {@link QueryDefinition} to require all given types.
      * Should not be used with any other query modifying methods.
-     * @param types
+     * @param types The types.
      */
     public withAll<T extends ComponentType<any, string, any, any>[]>(...types: T): QueryDefinition<T>
     {
@@ -92,7 +88,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
     /**
      * Modifies the {@link QueryDefinition} to exclude all given types.
      * Should not be used with the {@link QueryDefinition.withOnly} method.
-     * @param types
+     * @param types The types.
      */
     public withNone(...types: ComponentType<any, string, any, any>[]): QueryDefinition<T>
     {
@@ -106,7 +102,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
     /**
      * Modifies the {@link QueryDefinition} to require one of the given types exclusively.
      * Should not be used with the {@link QueryDefinition.withOnly} method.
-     * @param types
+     * @param types The types.
      */
     public withOne(...types: ComponentType<any, string, any, any>[]): QueryDefinition<T>
     {
@@ -118,9 +114,19 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
     }
 
     /**
+     * Modifies the {@link QueryDefinition} to require at least one of the given types.
+     * @param types The types.
+     */
+    public withSome(...types: ComponentType<any, string, any, any>[]): QueryDefinition<T>
+    {
+        this._withSome = Component.bitsetFromTypes(...types);
+        return this;
+    }
+
+    /**
      * Modifies the {@link QueryDefinition} to require all given types exclusively.
      * Should not be used with any other query modifying methods.
-     * @param types
+     * @param types The types.
      */
     public withOnly<T extends ComponentType<any, string, any, any>[]>(...types: T): QueryDefinition<T>
     {
@@ -135,7 +141,7 @@ export class QueryDefinition<T extends readonly ComponentType<any, string, any, 
 
     /**
      * Returns a boolean representing whether the given {@link Bitset} satisfies this {@link QueryDefinition}.
-     * @param signature
+     * @param signature The {@link Bitset} to check.
      */
     public satisfiedBy(signature: Bitset): boolean
     {

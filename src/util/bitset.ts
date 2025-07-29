@@ -99,6 +99,7 @@ export class Bitset
     {
         Bitset.setFlagCount(32);
         Bitset.memReset();
+        (Bitset as any).null = new Bitset();
     }
 
     /**
@@ -183,6 +184,7 @@ export class Bitset
 
         for (let i = 0; i < Bitset._int8Count; i++)
         {
+            console.log(other);
             Bitset._memArray[this._intIndex + i] |= Bitset._memArray[other._intIndex + i];
             this._setFlagCount += this.countSetBitsInInt(Bitset._memArray[this._intIndex + i]);
         }

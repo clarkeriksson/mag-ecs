@@ -1,10 +1,10 @@
 // noinspection JSUnusedGlobalSymbols
-import { QueryDefinition } from "./query-definition";
-import { Bitset } from "../util/bitset";
-import { System } from "./system";
-import { TimeContext } from "../util/time-context";
-import { Component } from "./component";
-import { ArrayPool } from "../util/array-pool";
+import { QueryDefinition } from "./query-definition.js";
+import { Bitset } from "../util/bitset.js";
+import { System } from "./system.js";
+import { TimeContext } from "../util/time-context.js";
+import { Component } from "./component.js";
+import { ArrayPool } from "../util/array-pool.js";
 
 import type {
     ComponentTypeInstance,
@@ -14,7 +14,7 @@ import type {
     QueryComponentInstanceTuple,
     Constructor,
     Value
-} from "./component";
+} from "./component.js";
 
 /**
  * @class World

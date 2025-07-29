@@ -1,5 +1,5 @@
-import { World } from "./world";
-import { TimeContext } from "../util/time-context";
+import { World } from "./world.js";
+import { TimeContext } from "../util/time-context.js";
 
 export type SystemContext = { time: TimeContext };
 export type SystemCallback = (world: World, context: SystemContext) => void;

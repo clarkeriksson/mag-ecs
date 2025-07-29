@@ -1,5 +1,5 @@
 import { Bitset } from "./bitset";
-import type { ISparseSet } from "./sparse-set";
+import type { ISparseSet } from "./sparse-set.js";
 
 /**
  * A sparse set representation of boolean values.

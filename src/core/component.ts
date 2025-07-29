@@ -1,12 +1,12 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { Bitset } from "../util/bitset";
-import { SparseSet } from "../util/sparse-set";
-import { SparseBitSet } from "../util/sparse-bit-set";
-import { SparseTagSet } from "../util/sparse-tag-set";
+import { Bitset } from "../util/bitset.js";
+import { SparseSet } from "../util/sparse-set.js";
+import { SparseBitSet } from "../util/sparse-bit-set.js";
+import { SparseTagSet } from "../util/sparse-tag-set.js";
 
-import type { DeepReadonly } from "../util/sparse-set";
-import type { ISparseSet } from "../util/sparse-set";
+import type { DeepReadonly } from "../util/sparse-set.js";
+import type { ISparseSet } from "../util/sparse-set.js";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 

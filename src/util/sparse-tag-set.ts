@@ -1,4 +1,4 @@
-import type { ISparseSet } from "./sparse-set";
+import type { ISparseSet } from "./sparse-set.js";
 
 /**
  * A "sparse set" containing entries of the type true. Not truly a sparse set, but designated as such to keep

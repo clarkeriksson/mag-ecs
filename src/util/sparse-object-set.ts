@@ -1,6 +1,6 @@
-import type { ISparseSet, IndexedValue } from "./sparse-set";
+import type { ISparseSet, IndexedValue } from "./sparse-set.js";
 
-import type {Constructor, ValueObject} from "../core/component";
+import type {Constructor, ValueObject} from "../core/component.js";
 
 type DeepReadonly<T> =
     T extends Array<infer U> // arrays become readonly arrays

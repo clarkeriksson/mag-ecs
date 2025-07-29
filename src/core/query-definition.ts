@@ -1,9 +1,9 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { ComponentType } from "./component";
+import { ComponentType } from "./component.js";
 
-import {Bitset} from "../util/bitset";
-import {Component} from "./component";
+import {Bitset} from "../util/bitset.js";
+import {Component} from "./component.js";
 
 /**
  * Specifies the types of entities iterated in a query-like operation.

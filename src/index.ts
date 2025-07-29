@@ -1,14 +1,14 @@
-export { Component } from './core/component';
-export { System } from './core/system';
-export { World } from './core/world';
-export { MagEvent } from './core/mag-event';
-export { QueryDefinition } from './core/query-definition';
-export { Bitset } from './util/bitset';
-export { SparseSet } from './util/sparse-set';
-export { SparseObjectSet } from './util/sparse-object-set';
-export { SparseBitSet } from './util/sparse-bit-set';
-export { SparseTagSet } from './util/sparse-tag-set';
-export { TimeContext } from './util/time-context';
+export { Component } from './core/component.js';
+export { System } from './core/system.js';
+export { World } from './core/world.js';
+export { MagEvent } from './core/mag-event.js';
+export { QueryDefinition } from './core/query-definition.js';
+export { Bitset } from './util/bitset.js';
+export { SparseSet } from './util/sparse-set.js';
+export { SparseObjectSet } from './util/sparse-object-set.js';
+export { SparseBitSet } from './util/sparse-bit-set.js';
+export { SparseTagSet } from './util/sparse-tag-set.js';
+export { TimeContext } from './util/time-context.js';
 
 export type {
     Constructor,
@@ -49,4 +49,4 @@ export type {
     QueryComponentInstanceTuple,
     // Misc
     ReadonlyComponentInstanceFrom,
-} from './core/component';
+} from './core/component.js';

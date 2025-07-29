@@ -161,6 +161,7 @@ class World
      */
     public update(): void
     {
+        console.log(this._queryCacheDirty);
         for (const [def, value] of this._queryCacheDirty.entries())
         {
             if (value) this.refreshQuery(def);

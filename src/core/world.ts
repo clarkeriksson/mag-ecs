@@ -414,8 +414,6 @@ class World
         const typesSignature = Component.bitsetFromTypes(...types);
         const prototype = this._inheritance[entity];
 
-        if (!this.getSignature(entity).isSupersetOf(typesSignature)) throw new Error();
-
         let result = this._arrayPool.rent(types.length);
         for (let i = 0; i < types.length; i++)
         {
@@ -559,6 +557,10 @@ class World
             try
             {
                 callback(...components as QueryComponentInstanceTuple<T>);
+            }
+            catch (e)
+            {
+                console.log(this._queryCache.get(queryDefinition));
             }
             finally
             {

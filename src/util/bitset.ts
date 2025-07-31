@@ -120,10 +120,11 @@ export class Bitset
     public set(index: number, value: boolean): void
     {
         const intIndex = this.getBitIntIndex(index);
-        const mask = 1 << index;
+        const bitOffset = index % 8;
+        const mask = 1 << bitOffset;
 
         const wasSet = (Bitset._memArray[intIndex] & mask) !== 0;
-        this._setFlagCount = (+value) - (-wasSet); // +/- coerces to num.
+        this._setFlagCount += (+value) - (-wasSet); // +/- coerces to num.
 
         // Resets the bit, then sets it to the new value.
         Bitset._memArray[intIndex] = (Bitset._memArray[intIndex] & ~mask) | (mask * (+value));
@@ -136,7 +137,8 @@ export class Bitset
     public get(index: number): boolean
     {
         const intIndex = this.getBitIntIndex(index);
-        const mask = 1 << index;
+        const bitOffset = index % 8;
+        const mask = 1 << bitOffset;
 
         return (Bitset._memArray[intIndex] & mask) !== 0;
     }
@@ -213,19 +215,27 @@ export class Bitset
      */
     public not(): Bitset
     {
-        for (let i = 0; i < Bitset._int8Count - 1; i++)
+        this._setFlagCount = 0;
+
+        for (let i = 0; i < Bitset._int8Count; i++)
         {
             Bitset._memArray[this._intIndex + i] = ~Bitset._memArray[this._intIndex + i];
         }
 
-        const mask = (1 << (Bitset._flagCount % 64)) - 1;
+        // Apply mask to the last byte to clear unused bits beyond _flagCount
+        const lastByteIndex = Bitset._int8Count - 1;
+        const bitsInLastByte = Bitset._flagCount % 8;
+        if (bitsInLastByte !== 0)
+        {
+            const mask = (1 << bitsInLastByte) - 1;
+            Bitset._memArray[this._intIndex + lastByteIndex] &= mask;
+        }
 
-        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] =
-            ~Bitset._memArray[this._intIndex + Bitset._int8Count - 1];
-
-        Bitset._memArray[this._intIndex + Bitset._int8Count - 1] &= mask;
-
-        this._setFlagCount = Bitset._flagCount - this._setFlagCount;
+        // Recalculate set flag count
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            this._setFlagCount += this.countSetBitsInInt(Bitset._memArray[this._intIndex + i]);
+        }
 
         return this;
     }
@@ -239,6 +249,7 @@ export class Bitset
         {
             Bitset._memArray[this._intIndex + i] = 0;
         }
+        this._setFlagCount = 0;
     }
 
     /**
@@ -251,6 +262,7 @@ export class Bitset
         {
             Bitset._memArray[other._intIndex + i] = Bitset._memArray[this._intIndex + i];
         }
+        other._setFlagCount = this._setFlagCount;
     }
 
     /**
@@ -303,7 +315,14 @@ export class Bitset
      */
     public overlaps(other: Bitset): boolean
     {
-        return Bitset.and(this, other).setFlagCount !== 0;
+        for (let i = 0; i < Bitset._int8Count; i++)
+        {
+            if ((Bitset._memArray[this._intIndex + i] & Bitset._memArray[other._intIndex + i]) !== 0)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -312,6 +331,8 @@ export class Bitset
      */
     public static and(...bitsets: Bitset[]): Bitset
     {
+        if (bitsets.length === 0) return Bitset.rent();
+
         const result = Bitset.rent();
         bitsets[0].copyTo(result);
 
@@ -362,7 +383,7 @@ export class Bitset
      */
     private getBitIntIndex(bitIndex: number = 0): number
     {
-        return this._intIndex + Math.floor(bitIndex / 64);
+        return this._intIndex + Math.floor(bitIndex / 8);
     }
 
     /**
@@ -372,9 +393,9 @@ export class Bitset
     public static setFlagCount(count: number): void
     {
         Bitset._flagCount = count;
-        Bitset._bitCount = Math.ceil(count / 64) * 64;
+        Bitset._bitCount = Math.ceil(count / 8) * 8;
         Bitset._byteCount = Bitset._bitCount / 8;
-        Bitset._int8Count = Bitset._byteCount / 8;
+        Bitset._int8Count = Bitset._byteCount;
     }
 
     /**
@@ -404,7 +425,7 @@ export class Bitset
         const doublings = Math.ceil(Math.log2(size / bitsetCount));
         const newCapacity = Bitset._memArray.length * Math.pow(2, doublings);
 
-        const newBuffer = new ArrayBuffer(newCapacity * 8);
+        const newBuffer = new ArrayBuffer(newCapacity);
         const newArray = new Uint8Array(newBuffer);
 
         newArray.set(Bitset._memArray, 0);
@@ -420,7 +441,7 @@ export class Bitset
     private static reserveIndex(): number
     {
         const reserved = Bitset._cemetery.pop();
-        if (reserved)
+        if (reserved !== undefined)
         {
             return reserved;
         }
@@ -438,9 +459,13 @@ export class Bitset
     public static rent(): Bitset
     {
         const rented = Bitset._instancePool.pop();
-        if (rented) rented.clear();
+        if (rented)
+        {
+            rented.clear();
+            return rented;
+        }
 
-        return rented ?? new Bitset();
+        return new Bitset();
     }
 
     /**
@@ -449,7 +474,10 @@ export class Bitset
      */
     public static return(bitset: Bitset): void
     {
-        Bitset._instancePool.push(bitset);
+        if (bitset && bitset !== Bitset.null)
+        {
+            Bitset._instancePool.push(bitset);
+        }
     }
 
     /**

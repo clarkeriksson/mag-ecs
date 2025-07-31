@@ -429,7 +429,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
     private constructor(type: ComponentType<CmpType, CmpName, CmpStatic, CmpReadonly>)
     {
         this.type = type;
-        this._id = Component._idCounter++;
+        this._id = ++Component._idCounter;
         this.signature = new Bitset();
         this.signature.set(this._id, true);
 
@@ -500,6 +500,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
             }
         }
 
+        Component.T(ClassComponent as unknown as ComponentType<T, N, S, R>);
         return ClassComponent as unknown as ComponentType<T, N, S, R>;
     }
     public static createClassComponent<T extends Constructor, N extends string>(ctor: T, name: N): ClassComponentType<T extends Constructor ? T : never, N>
@@ -550,6 +551,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
             }
         }
 
+        Component.T(ValueComponent as unknown as ComponentType<T, N, S, R>);
         return ValueComponent as unknown as ComponentType<T, N, S, R>;
     }
     public static createValueComponent<T extends Value, const N extends string>(name: N, { isBoolean, isTag }: { isBoolean: boolean, isTag: boolean } = { isBoolean: false, isTag: false }): ValueComponentType<T, N>

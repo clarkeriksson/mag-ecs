@@ -7,6 +7,7 @@ import { SparseTagSet } from "../util/sparse-tag-set.js";
 
 import type { DeepReadonly } from "../util/sparse-set.js";
 import type { ISparseSet } from "../util/sparse-set.js";
+import { ArrayPool } from "../util/array-pool.js";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
@@ -603,6 +604,20 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
     {
         const value = Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T);
         return Component.rentInstance(type, value);
+    }
+
+    public static getManyUnchecked<T extends Constructor | Value, N extends string, S extends boolean, R extends boolean>(indices: number[], types: ComponentType<T, N, S, R>[]): ComponentTypeInstance<ComponentType<T, N, S, R>>[]
+    {
+        const array = ArrayPool.rent(0);
+        for (const index of indices)
+        {
+            for (const type of types)
+            {
+                //console.log(Component.rentInstance(type, Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T)));
+                array.push(Component.rentInstance(type, Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T)));
+            }
+        }
+        return array as ComponentTypeInstance<ComponentType<T, N, S, R>>[];
     }
 
     /**

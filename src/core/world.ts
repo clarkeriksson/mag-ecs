@@ -22,8 +22,6 @@ import type {
  */
 class World
 {
-    private _arrayPool: ArrayPool<any> =  new ArrayPool();
-
     /**
      * Holds all {@link World} instances.
      * @private
@@ -414,7 +412,7 @@ class World
         const typesSignature = Component.bitsetFromTypes(...types);
         const prototype = this._inheritance[entity];
 
-        let result = this._arrayPool.rent(types.length);
+        let result = ArrayPool.rent(types.length);
         for (let i = 0; i < types.length; i++)
         {
             const type = types[i];
@@ -428,7 +426,6 @@ class World
     public getStatic<T extends readonly ComponentType<Constructor | Value, string, boolean, boolean>[]>(types: Tupled<T>, entity: number): StaticComponentInstanceTuple<T>
     {
         const signature = Component.bitsetFromTypes(...types);
-        if (!this._staticEntities[entity]?.isSupersetOf(signature)) throw new Error();
 
         let result= new Array(types.length);
         for (let i = 0; i < types.length; i++)
@@ -532,7 +529,7 @@ class World
             }
             finally
             {
-                this._arrayPool.return(components);
+                ArrayPool.return(components);
             }
         }
     }
@@ -550,22 +547,22 @@ class World
         }
 
         const entities = this._queryCache.get(queryDefinition)!;
+        const allComponents = Component.getManyUnchecked(entities, queryDefinition.paramTypes);
 
-        for (const entity of entities)
+        //console.log(allComponents[0]);
+
+        const typesLength = queryDefinition.paramTypes.length;
+
+        const currentComponents = ArrayPool.rent(typesLength);
+
+        for (let i = 0; i < entities.length; i++)
         {
-            const components = this.get(queryDefinition.paramTypes, entity);
-            try
+            for (let j = 0; j < typesLength; j++)
             {
-                callback(...components as QueryComponentInstanceTuple<T>);
+                currentComponents[j] = allComponents[i * typesLength + j];
             }
-            catch (e)
-            {
-                console.log(this._queryCache.get(queryDefinition));
-            }
-            finally
-            {
-                this._arrayPool.return(components);
-            }
+            //console.log(currentComponents);
+            callback(...currentComponents as QueryComponentInstanceTuple<T>);
         }
     }
 
@@ -592,7 +589,7 @@ class World
             }
             finally
             {
-                this._arrayPool.return(components);
+                ArrayPool.return(components);
             }
         }
     }
@@ -615,7 +612,7 @@ class World
             }
             finally
             {
-                this._arrayPool.return(components);
+                ArrayPool.return(components);
             }
         }
     }

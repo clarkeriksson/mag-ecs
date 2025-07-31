@@ -1,29 +1,25 @@
 /**
  *
  */
-export class ArrayPool<T>
+export class ArrayPool
 {
-    private readonly _instances: T[][] = [];
+    private static readonly _instances: any[][] = [];
 
-    public get length(): number { return this._instances.length; }
+    public get length(): number { return ArrayPool._instances.length; }
 
-    constructor()
-    {
-        this._instances = [];
-    }
-
-    public rent(length: number = 0): T[]
+    public static rent<T>(length: number = 0): T[]
     {
         let instance = this._instances.pop() ?? [];
         if (instance.length !== length)
         {
+            instance.length = 0;
             instance.length = length;
         }
 
         return instance;
     }
 
-    public return(array: T[]): void
+    public static return(array: any[]): void
     {
         this._instances.push(array);
     }

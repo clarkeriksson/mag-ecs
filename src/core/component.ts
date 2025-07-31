@@ -374,6 +374,12 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
     private static readonly _statics: Map<ComponentType<any, string, boolean, boolean>, Component<any, string, boolean, boolean>> = new Map();
 
     /**
+     * Holds a map from a {@link ComponentType} to it's {@link Component._id}.
+     * @private
+     */
+    private static readonly _idMap: Map<ComponentType<any, string, boolean, boolean>, number> = new Map();
+
+    /**
      * Counter for assigning unique Ids.
      * Reserved Bits: [0 as static flag]
      * @private
@@ -448,6 +454,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
         }
 
         this._instancePool = [];
+        Component._idMap.set(type, this._id);
         Component._statics.set(type, this);
     }
 
@@ -662,7 +669,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
         const result = Bitset.rent();
         for (const type of types)
         {
-            result.set(Component.T(type).id, true);
+            result.set(Component._idMap.get(type)!, true);
         }
         return result;
     }
@@ -677,7 +684,7 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
         for (let i = 0; i < components.length; i++)
         {
             const component = components[i];
-            result.set(Component.T(component.type).id, true);
+            result.set(Component._idMap.get(component.type)!, true);
         }
         return result;
     }

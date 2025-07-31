@@ -161,12 +161,9 @@ class World
      */
     public update(): void
     {
-        if (this._queryCacheDirty)
+        for (const [def, value] of this._queryCacheDirty.entries())
         {
-            for (const [def, value] of this._queryCacheDirty.entries())
-            {
-                if (value) this.refreshQuery(def);
-            }
+            if (value) this.refreshQuery(def);
         }
 
         for (const system of this._systems)
@@ -478,6 +475,11 @@ class World
                 this._staticQueryCacheDirty.set(cacheQuery, true);
             }
         }
+    }
+
+    private dirtyEntity(entity: number): void
+    {
+
     }
 
     /**

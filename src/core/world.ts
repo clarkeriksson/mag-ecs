@@ -59,6 +59,11 @@ class World
      */
     private readonly _inheritance: (number | undefined)[];
 
+    public getInheritance(entity: number): number | undefined
+    {
+        return this._inheritance[entity];
+    }
+
     /**
      * Array of static entity {@link Bitset}(s), where index corresponds to static entity id.
      * @private
@@ -547,7 +552,7 @@ class World
         }
 
         const entities = this._queryCache.get(queryDefinition)!;
-        const allComponents = Component.getManyUnchecked(entities, queryDefinition.paramTypes);
+        const allComponents = Component.getManyUnchecked(this, entities, queryDefinition.paramTypes);
 
         //console.log(allComponents[0]);
 
@@ -564,6 +569,9 @@ class World
             //console.log(currentComponents);
             callback(...currentComponents as QueryComponentInstanceTuple<T>);
         }
+
+        ArrayPool.return(allComponents);
+        ArrayPool.return(currentComponents);
     }
 
     /**

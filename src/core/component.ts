@@ -8,6 +8,7 @@ import { SparseTagSet } from "../util/sparse-tag-set.js";
 import type { DeepReadonly } from "../util/sparse-set.js";
 import type { ISparseSet } from "../util/sparse-set.js";
 import { ArrayPool } from "../util/array-pool.js";
+import {World} from "./world";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
@@ -467,8 +468,8 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
      */
     public static T<T extends Constructor | Value, N extends string, S extends boolean, R extends boolean>(type: ComponentType<T, N, S, R>): Component<T, N, S, R>
     {
-        let $static = Component._statics.get(type);
-        return ($static ?? this.addUnchecked(type)) as Component<T, N, S, R>;
+        return Component._statics.get(type) as Component<T, N, S, R>;
+        //return ($static ?? this.addUnchecked(type)) as Component<T, N, S, R>;
     }
 
     /**
@@ -501,7 +502,8 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
             }
         }
 
-        Component.T(ClassComponent as unknown as ComponentType<T, N, S, R>);
+        this.addUnchecked(ClassComponent as unknown as ComponentType<T, N, S, R>);
+        //Component.T(ClassComponent as unknown as ComponentType<T, N, S, R>);
         return ClassComponent as unknown as ComponentType<T, N, S, R>;
     }
     public static createClassComponent<T extends Constructor, N extends string>(ctor: T, name: N): ClassComponentType<T extends Constructor ? T : never, N>
@@ -552,7 +554,8 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
             }
         }
 
-        Component.T(ValueComponent as unknown as ComponentType<T, N, S, R>);
+        this.addUnchecked(ValueComponent as unknown as ComponentType<T, N, S, R>);
+        //Component.T(ValueComponent as unknown as ComponentType<T, N, S, R>);
         return ValueComponent as unknown as ComponentType<T, N, S, R>;
     }
     public static createValueComponent<T extends Value, const N extends string>(name: N, { isBoolean, isTag }: { isBoolean: boolean, isTag: boolean } = { isBoolean: false, isTag: false }): ValueComponentType<T, N>
@@ -606,15 +609,17 @@ export class Component<CmpType extends Constructor | Value, CmpName extends stri
         return Component.rentInstance(type, value);
     }
 
-    public static getManyUnchecked<T extends Constructor | Value, N extends string, S extends boolean, R extends boolean>(indices: number[], types: ComponentType<T, N, S, R>[]): ComponentTypeInstance<ComponentType<T, N, S, R>>[]
+    public static getManyUnchecked<T extends Constructor | Value, N extends string, S extends boolean, R extends boolean>(world: World, indices: number[], types: ComponentType<T, N, S, R>[]): ComponentTypeInstance<ComponentType<T, N, S, R>>[]
     {
         const array = ArrayPool.rent(0);
+
         for (const index of indices)
         {
-            for (const type of types)
+            const inheritance = world.getInheritance(index);
+            for (let i = 0; i < types.length; i++)
             {
-                //console.log(Component.rentInstance(type, Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T)));
-                array.push(Component.rentInstance(type, Component.getSet(type).getUnchecked(index) as (T extends Constructor ? InstanceType<T> : T)));
+                const type = types[i];
+                array.push(Component.rentInstance(type, Component.getSet(type).getUnchecked((type.__static) ? inheritance! : index) as (T extends Constructor ? InstanceType<T> : T)));
             }
         }
         return array as ComponentTypeInstance<ComponentType<T, N, S, R>>[];

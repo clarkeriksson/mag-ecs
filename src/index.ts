@@ -2,7 +2,7 @@ export { Component } from './core/component.js';
 export { System } from './core/system.js';
 export { World } from './core/world.js';
 export { MagEvent } from './core/mag-event.js';
-export { QueryDefinition } from './core/query-definition.js';
+export { Query } from './core/query';
 export { Bitset } from './util/bitset.js';
 export { SparseSet } from './util/sparse-set.js';
 export { SparseObjectSet } from './util/sparse-object-set.js';
@@ -21,32 +21,11 @@ export type {
     DataType,
     // Component Types and Component Instance Types
     ClassComponentType,
-    ClassComponentInstance,
     ReadonlyClassComponentType,
-    ReadonlyClassComponentInstance,
-    StaticClassComponentType,
-    StaticClassComponentInstance,
-    StaticReadonlyClassComponentType,
-    StaticReadonlyClassComponentInstance,
     ValueComponentType,
-    ValueComponentInstance,
     ReadonlyValueComponentType,
-    ReadonlyValueComponentInstance,
-    StaticValueComponentType,
-    StaticValueComponentInstance,
-    StaticReadonlyValueComponentType,
-    StaticReadonlyValueComponentInstance,
     // Broad Component Types and Component Instance Types
     ComponentType,
-    StaticComponentType,
-    QueryComponentType,
-    ComponentInstance,
     ComponentTypeInstance,
-    QueryComponentTypeInstance,
     // Tuple Types
-    ComponentInstanceTuple,
-    StaticComponentInstanceTuple,
-    QueryComponentInstanceTuple,
-    // Misc
-    ReadonlyComponentInstanceFrom,
 } from './core/component.js';

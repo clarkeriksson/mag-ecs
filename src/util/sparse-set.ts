@@ -16,8 +16,9 @@ export type DeepReadonly<T> =
 export interface ISparseSet<T>
 {
     add(index: number, value: T): boolean;
-    remove(index: number): T | null;
-    get(index: number): T | null;
+    set(index: number, value: T): void;
+    remove(index: number): T | undefined;
+    get(index: number): T | undefined;
     getUnchecked(index: number): T;
     has(index: number): boolean;
 }
@@ -76,17 +77,27 @@ export class SparseSet<T> implements ISparseSet<T>
         return true;
     }
 
+    public set(index: number, value: T): void {
+
+        const sparse = this._sparse[index];
+
+        if (sparse === undefined) return;
+
+        this._dense[sparse].value = value;
+
+    }
+
     /**
      * Removes the value corresponding to the given index.
      * @param index
      */
-    public remove(index: number): T | null
+    public remove(index: number): T | undefined
     {
         let denseIndex = this._sparse[index];
 
         if (denseIndex === undefined)
         {
-            return null;
+            return undefined;
         }
 
         const removed = this._dense[denseIndex];
@@ -105,10 +116,10 @@ export class SparseSet<T> implements ISparseSet<T>
      * Returns null if the value is not found.
      * @param index
      */
-    public get(index: number): T | null
+    public get(index: number): T | undefined
     {
         let denseIndex = this._sparse[index];
-        if (denseIndex === undefined) return null;
+        if (denseIndex === undefined) return undefined;
 
         return this._dense[denseIndex].value;
     }

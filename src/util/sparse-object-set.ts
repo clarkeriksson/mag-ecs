@@ -41,13 +41,13 @@ export class SparseObjectSet<
         return true;
     }
 
-    public remove(index: number): I | null
+    public remove(index: number): I | undefined
     {
         let denseIndex = this._sparse[index];
 
         if (denseIndex === undefined)
         {
-            return null;
+            return undefined;
         }
 
         const removed = this._dense[denseIndex];
@@ -61,10 +61,15 @@ export class SparseObjectSet<
         return removed.value;
     }
 
-    public get(index: number): I | null
+    public set(index: number, value: I)
+    {
+        throw new Error("Attempted to");
+    }
+
+    public get(index: number): I | undefined
     {
         let denseIndex = this._sparse[index];
-        if (denseIndex === undefined) return null;
+        if (denseIndex === undefined) return undefined;
 
         return this._dense[denseIndex].value;
     }

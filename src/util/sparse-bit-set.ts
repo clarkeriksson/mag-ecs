@@ -26,18 +26,23 @@ export class SparseBitSet implements ISparseSet<boolean>
         return true;
     }
 
-    public remove(index: number): boolean | null
+    public remove(index: number): boolean | undefined
     {
         const value = this._map[index];
 
         delete this._map[index];
 
-        return value ?? null;
+        return value ?? undefined;
     }
 
-    public get(index: number): boolean | null
+    public get(index: number): boolean | undefined
     {
-        return this._map[index] ?? null;
+        return this._map[index] ?? undefined;
+    }
+
+    public set(index: number, value: boolean): boolean
+    {
+        throw new Error("Attempted to");
     }
 
     public getUnchecked(index: number): boolean

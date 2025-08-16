@@ -44,11 +44,8 @@ export class SparseSet<T> implements ISparseSet<T>
      */
     private readonly _sparse: (number | undefined)[];
 
-    /**
-     * The dense array holding internal data in a packed form.
-     * @private
-     */
-    private readonly _dense: IndexedValue<T>[];
+    private readonly _denseValue: T[];
+    private readonly _denseIndex: number[];
 
     /**
      * Creates an instance of {@link SparseSet}.
@@ -56,7 +53,8 @@ export class SparseSet<T> implements ISparseSet<T>
     public constructor()
     {
         this._sparse = [];
-        this._dense = [];
+        this._denseValue = [];
+        this._denseIndex = [];
     }
 
     /**
@@ -71,8 +69,10 @@ export class SparseSet<T> implements ISparseSet<T>
             return false;
         }
 
-        this._dense.push({ index: index, value });
-        this._sparse[index] = this._dense.length - 1;
+        //this._dense.push({ index: index, value });
+        this._denseValue.push(value);
+        this._denseIndex.push(index);
+        this._sparse[index] = this._denseValue.length - 1;
 
         return true;
     }
@@ -83,7 +83,8 @@ export class SparseSet<T> implements ISparseSet<T>
 
         if (sparse === undefined) return;
 
-        this._dense[sparse].value = value;
+        //this._dense[sparse].value = value;
+        this._denseValue[sparse] = value;
 
     }
 
@@ -100,15 +101,18 @@ export class SparseSet<T> implements ISparseSet<T>
             return undefined;
         }
 
-        const removed = this._dense[denseIndex];
-        
-        this._dense[denseIndex] = this._dense[this._dense.length - 1];
+        //const removed = this._dense[denseIndex];
+        const removedValue = this._denseValue[denseIndex];
 
-        this._sparse[this._dense[denseIndex].index] = denseIndex;
+        this._denseValue[denseIndex] = this._denseValue[this._denseValue.length - 1];
+        this._denseIndex[denseIndex] = this._denseIndex[this._denseIndex.length - 1];
 
-        this._dense.pop();
+        this._sparse[this._denseIndex[denseIndex]] = denseIndex;
 
-        return removed.value;
+        this._denseValue.pop();
+        this._denseIndex.pop();
+
+        return removedValue;
     }
 
     /**
@@ -121,7 +125,23 @@ export class SparseSet<T> implements ISparseSet<T>
         let denseIndex = this._sparse[index];
         if (denseIndex === undefined) return undefined;
 
-        return this._dense[denseIndex].value;
+        return this._denseValue[denseIndex];
+    }
+
+    public __get(index: number): T {
+
+        return this._denseValue[this._sparse[index]!]!;
+
+    }
+
+    public __getBatch(indices: number[], batch: T[], stride: number, offset: number): void {
+
+        for (let i = 0; i < indices.length; i++) {
+
+            batch[i * stride + offset] = this._denseValue[this._sparse[indices[i]!]!];
+
+        }
+
     }
 
     /**
@@ -141,6 +161,6 @@ export class SparseSet<T> implements ISparseSet<T>
     public getUnchecked(index: number): T
     {
         let denseIndex = this._sparse[index]!;
-        return this._dense[denseIndex].value;
+        return this._denseValue[denseIndex];
     }
 }

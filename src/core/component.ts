@@ -2,91 +2,14 @@
 
 import { Bitset } from "../util/bitset.js";
 import { SparseSet } from "../util/sparse-set.js";
-import { SparseBitSet } from "../util/sparse-bit-set.js";
-import { SparseTagSet } from "../util/sparse-tag-set.js";
 
 import type { DeepReadonly } from "../util/sparse-set.js";
-import type { ISparseSet } from "../util/sparse-set.js";
-import { ArrayPool } from "../util/array-pool.js";
-import {World} from "./world";
 
 export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
-export type Constructor<T = any> = { new(...args: any[]): T };
+export type Constructor<T = any, N extends string = string> = { new(...args: any[]): T, name: N };
 
 type UnionToArray<T> = T extends any ? T[] : never;
-
-/**
- * Non-static, non-readonly component type with class instance data.
- */
-export type ClassComponentType<T extends Constructor, N extends string> = {
-    readonly name: N;
-    readonly __isClassType: true;
-    readonly __isValueType: false;
-    readonly __isBooleanType: false;
-    readonly __isTagType: false;
-    readonly __readonly: false;
-    new (...args: ConstructorParameters<T>): InstanceType<T>;
-}
-
-/**
- * Non-static, non-readonly component type with value data.
- */
-export type ValueComponentType<T extends Value, N extends string> = {
-    readonly name: N;
-    readonly __isClassType: false;
-    readonly __isValueType: true;
-    readonly __isBooleanType: boolean;
-    readonly __isTagType: boolean;
-    new (arg: T): T;
-}
-
-/**
- * Non-static, readonly component type with class instance data.
- */
-export type ReadonlyClassComponentType<T extends Constructor, N extends string> = {
-    readonly name: N;
-    readonly __isClassType: true;
-    readonly __isValueType: false;
-    readonly __isBooleanType: false;
-    readonly __isTagType: false;
-    new (...args: ConstructorParameters<T>): DeepReadonly<InstanceType<T>>;
-}
-
-/**
- * Non-static, readonly component type with value data.
- */
-export type ReadonlyValueComponentType<T extends Value, N extends string> = {
-    readonly name: N;
-    readonly __isClassType: false;
-    readonly __isValueType: true;
-    readonly __isBooleanType: boolean;
-    readonly __isTagType: boolean;
-    new (arg: T): T;
-}
-
-/**
- * Type resolving the generic type parameters to a specific 'component-type' type.
- */
-export type ComponentType<T extends Constructor | Value, N extends string, Readonly extends boolean> =
-    T extends Constructor
-        ? (
-            Readonly extends true
-                ? ReadonlyClassComponentType<T, N>
-                : Readonly extends false ? ClassComponentType<T, N> : never
-        ) : T extends Value ? (
-            Readonly extends true
-                ? ReadonlyValueComponentType<T, N>
-                : Readonly extends false ? ValueComponentType<T, N> : never
-        ) : never;
-
-/**
- * Type resolving the generic 'component-type' type parameter to a specific 'component-instance' type.
- */
-export type ComponentTypeInstance<Type extends Constructor | Value, Readonly extends boolean> =
-    Type extends Constructor
-        ? Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>
-        : Type;
 
 /**
  * Non-nullish primitive types used in mag-ecs.
@@ -154,10 +77,7 @@ export type ComponentAccessorTuple<T extends readonly Component<any, any, any>[]
     [K in keyof T]: ComponentAccessor<T[K]>;
 }
 
-export class Accessor<
-    T extends Component<any, any, any>,
-    R = T extends Component<any, any, infer Readonly> ? Readonly : never
-> {
+export class Accessor<T extends Component = Component> {
     public entity = -1;
     public data: any;
     public component!: T;
@@ -171,7 +91,7 @@ export class Accessor<
  * Class used to access and automatically manage component-type information.
  * @class
  */
-export class Component<Type extends Constructor | Value, Name extends string, Readonly extends boolean> {
+export class Component<Type extends Constructor | Value = Constructor | Value, Name extends string = string, Readonly extends boolean = boolean> {
 
     private static _nextId: number = 0;
 
@@ -188,9 +108,11 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
     private readonly _id: number;
     private readonly _idBitset: Bitset;
 
+    private readonly _constructor?: Constructor;
+
     public get id(): number { return this._id; }
 
-    private readonly _store: ISparseSet<DataType<Type, Readonly>>;
+    private readonly _store: SparseSet<DataType<Type, Readonly>>;
 
     private constructor({
         isClassType,
@@ -199,6 +121,7 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
         isTagType,
         isReadonly,
         name,
+        ctor,
                         }: {
         isClassType: boolean;
         isValueType: boolean;
@@ -206,6 +129,7 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
         isTagType: boolean;
         isReadonly: Readonly;
         name: Name;
+        ctor?: Constructor;
     }) {
 
         this.__isClassType = isClassType;
@@ -223,28 +147,27 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
         this._idBitset = new Bitset();
         this._idBitset.set(this._id, true);
 
+        this._constructor = ctor;
+
     }
 
-    public static fromClass<T extends Constructor>() {
+    public static fromClass<T extends Constructor, N extends string, R extends boolean>({ ctor, name, readonly }: { ctor: T, name: N, readonly: R }) {
 
-        return <N extends string, R extends boolean>(name: N, readonly: R) => {
-
-            return new Component<T, N, R>({
-                isClassType: true,
-                isValueType: false,
-                isBooleanType: false,
-                isTagType: false,
-                isReadonly: readonly,
-                name: name,
-            });
-
-        }
+        return new Component<T, N, R>({
+            isClassType: true,
+            isValueType: false,
+            isBooleanType: false,
+            isTagType: false,
+            isReadonly: readonly,
+            name: name,
+            ctor,
+        });
 
     }
 
     public static fromValue<T extends Value>() {
 
-        return <N extends string, R extends boolean>(name: N, readonly: R) => {
+        return <N extends string, R extends boolean>({ name, readonly }: { name: N, readonly: R }) => {
 
             return new Component<T, N, R>({
                 isClassType: false,
@@ -267,7 +190,7 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
 
     public __get(entity: number): DataType<Type, Readonly> {
 
-        return this._store.get(entity)!;
+        return this._store.__get(entity)!;
 
     }
 
@@ -300,14 +223,14 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
 
         if (newValue !== undefined) {
 
-            console.log(newValue);
+            //console.log(newValue);
             this._store.set(entity, newValue);
 
         }
 
     }
 
-    public static bitsetFromTypes(...types: Component<any, string, boolean>[]): Bitset {
+    public static bitsetFromTypes(...types: Component[]): Bitset {
 
         if (Component._bitsetCache.has(types)) {
 
@@ -319,25 +242,51 @@ export class Component<Type extends Constructor | Value, Name extends string, Re
 
     }
 
-    public static getQueryComponents(entities: number[], types: Component<any, string, boolean>[]): DataType<any, boolean>[] {
+    public static getQueryComponents(entities: number[], types: Component[]): DataType<any, any>[] {
 
-        const result = new Array(entities.length * types.length);
+        const entitiesLength = entities.length;
+        const typesLength = types.length;
+        const result = new Array(entitiesLength * typesLength);
 
-        for (let i = 0; i < entities.length; i++) {
+        for (let j = 0; j < typesLength; j++) {
 
-            const entity = entities[i];
+            const type = types[j];
 
-            for (let j = 0; j < types.length; j++) {
-
-                const type = types[j];
-
-                result[i * types.length + j] = type.__get(entity);
-
-            }
+            type._store.__getBatch(entities, result, typesLength, j);
 
         }
 
         return result;
+
+    }
+
+}
+
+export function component<N extends string>(name: N) {
+
+    return {
+
+        value<T extends Value = Value>() {
+
+            return {
+
+                immutable: () => Component.fromValue<T>()({ name, readonly: true }),
+                mutable: () => Component.fromValue<T>()({ name, readonly: false }),
+
+            }
+
+        },
+
+        class: <T extends Constructor = Constructor>(ctor: T) => {
+
+            return {
+
+                immutable: () => Component.fromClass({ ctor, name, readonly: true }),
+                mutable: () => Component.fromClass({ ctor, name, readonly: false }),
+
+            }
+
+        }
 
     }
 

@@ -1,8 +1,8 @@
-export { Component } from './core/component.js';
 export { System } from './core/system.js';
+export { component } from './core/component.js'
 export { World } from './core/world.js';
 export { MagEvent } from './core/mag-event.js';
-export { Query } from './core/query';
+export { Query } from './core/query.js';
 export { Bitset } from './util/bitset.js';
 export { SparseSet } from './util/sparse-set.js';
 export { SparseObjectSet } from './util/sparse-object-set.js';
@@ -19,13 +19,4 @@ export type {
     Value,
     ValueObject,
     DataType,
-    // Component Types and Component Instance Types
-    ClassComponentType,
-    ReadonlyClassComponentType,
-    ValueComponentType,
-    ReadonlyValueComponentType,
-    // Broad Component Types and Component Instance Types
-    ComponentType,
-    ComponentTypeInstance,
-    // Tuple Types
 } from './core/component.js';

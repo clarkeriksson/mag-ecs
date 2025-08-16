@@ -22,15 +22,20 @@ export class SparseTagSet implements ISparseSet<true>
         return true;
     }
 
-    public remove(index: number): true | null
+    public remove(index: number): true | undefined
     {
         const removed = this._sparse.delete(index);
-        return removed || null;
+        return removed || undefined;
     }
 
-    public get(index: number): true | null
+    public set(index: number, value: true)
     {
-        return this._sparse.has(index) || null;
+        if (this._sparse.has(index)) return false;
+    }
+
+    public get(index: number): true | undefined
+    {
+        return this._sparse.has(index) || undefined;
     }
 
     public getUnchecked(_: number): true

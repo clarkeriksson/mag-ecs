@@ -1,19 +1,13 @@
 // noinspection JSUnusedGlobalSymbols
-import {Bitset} from "../util/bitset";
-import {Query} from "./query";
-import {Component, Accessor, ComponentAccessorTuple, DataType, Constructor, Value} from "./component";
+import {Bitset} from "../util/bitset.js";
+import {Query} from "./query.js";
+import {Component, Accessor, ComponentAccessorTuple, DataType, Constructor, Value} from "./component.js";
 
 /**
  * @class World
  * @summary A mag-ecs world. Informally represents what should be a (mostly) isolated ECS context.
  */
 class World {
-
-    /**
-     * Holds all {@link World} instances.
-     * @private
-     */
-    private static readonly _statics: World[] = [];
 
     /**
      * Static incrementing value used for {@link World} ids.
@@ -50,6 +44,8 @@ class World {
      */
     private readonly _dirtyQueries: Set<Query>;
 
+    private readonly _accessorCache: Map<Query, Accessor[]>;
+
     /**
      * Creates an instance of {@link World}.
      * @constructor
@@ -71,6 +67,8 @@ class World {
 
         this._queryCache = new Map();
         this._dirtyQueries = new Set();
+
+        this._accessorCache = new Map();
 
     }
 
@@ -96,22 +94,27 @@ class World {
 
     }
 
-    public run<T extends readonly Component<any, string, boolean>[]>(query: Query<T>, callback: (entity: number, types: ComponentAccessorTuple<T>) => void) {
+    public run<T extends readonly Component[]>(query: Query<T>, callback: (entity: number, types: ComponentAccessorTuple<T>) => void) {
 
         this._ensureFresh(query);
 
         const types = query.paramTypes;
         const typesLength = types.length;
 
-        const queriedEntities = this._queryCache.get(query) ?? [];
+        const queriedEntities = this._queryCache.get(query)!;
+        const queryComponents = Component.getQueryComponents(queriedEntities, types);
 
-        const queryComponents = Component.getQueryComponents(queriedEntities, query.paramTypes);
+        let cachedAccessors = this._accessorCache.get(query);
 
-        const accessors = new Array(typesLength);
+        if (cachedAccessors === undefined) {
 
-        for (let i = 0; i < accessors.length; i++) {
+            cachedAccessors = new Array(typesLength);
+            for (let i = 0; i < cachedAccessors.length; i++) {
 
-            accessors[i] = new Accessor();
+                cachedAccessors[i] = new Accessor();
+                cachedAccessors[i].component = types[i];
+
+            }
 
         }
 
@@ -122,15 +125,14 @@ class World {
 
             for (let j = 0; j < typesLength; j++) {
 
-                const accessor = accessors[j];
+                const accessor = cachedAccessors[j];
 
                 accessor.entity = entity;
                 accessor.data = queryComponents[baseIndex + j];
-                accessor.component = types[j];
 
             }
 
-            callback(entity, accessors as ComponentAccessorTuple<T>);
+            callback(entity, cachedAccessors as ComponentAccessorTuple<T>);
 
         }
 
@@ -185,7 +187,6 @@ class World {
             }
 
             const matches = query.satisfiedBy(signature);
-            //console.log(signature.toString(), query._all.toString());
 
             if (matches) {
 

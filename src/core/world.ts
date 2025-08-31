@@ -1,7 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 import {Bitset} from "../util/bitset.js";
 import {Query} from "./query.js";
-import {Component, Accessor, ComponentAccessorTuple, DataType, Constructor, Value} from "./component.js";
+import {Component, Accessor, ComponentAccessorTuple, DataType, Constructor, Value, component} from "./component.js";
 
 /**
  * @class World
@@ -44,6 +44,9 @@ class World {
      */
     private readonly _dirtyQueries: Set<Query>;
 
+    /**
+     * Cache of {@link Accessor} instances for existing {@link Query} instances.
+     */
     private readonly _accessorCache: Map<Query, Accessor[]>;
 
     /**
@@ -94,7 +97,7 @@ class World {
 
     }
 
-    public run<T extends readonly Component[]>(query: Query<T>, callback: (entity: number, types: ComponentAccessorTuple<T>) => void) {
+    public run<T extends readonly Component<any, any, any>[]>(query: Query<T>, callback: (entity: number, types: ComponentAccessorTuple<T>) => void) {
 
         this._ensureFresh(query);
 
@@ -128,7 +131,7 @@ class World {
                 const accessor = cachedAccessors[j];
 
                 accessor.entity = entity;
-                accessor.data = queryComponents[baseIndex + j];
+                (accessor.data as any) = queryComponents[baseIndex + j];
 
             }
 
@@ -204,3 +207,11 @@ class World {
 }
 
 export { World };
+
+// const world = new World();
+// const classCmp = component("classCmp").class(class ClassCmp { public num: number = 0; }).immutable();
+// const cmp = component("cmp").value<number>().immutable();
+// const query = new Query().all(cmp, classCmp);
+// world.run(query, function(entity, [acc, cla]) {
+//
+// });

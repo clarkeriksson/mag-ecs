@@ -52,7 +52,7 @@ export type SetDataType<T extends Constructor | Value, R extends true | false> =
     T extends Constructor ? (R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>)
     : (R extends true ? never : T);
 
-export type ComponentSetDataType<T extends Component<any, any, any>> =
+export type ComponentReadonlyDataType<T extends Component<any, any, any>> =
     T extends Component<infer Type, string, infer Readonly>
         ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>)
         : (Readonly extends true ? never : T)
@@ -73,19 +73,25 @@ export type ComponentAccessor<T extends Component<any, any, any>> =
         mutate: Readonly extends true ? never : (mutator: Mutator<Type, Readonly>) => void;
     } : never;
 
-export type ComponentAccessorTuple<T extends readonly Component<any, any, any>[]> = {
-    [K in keyof T]: ComponentAccessor<T[K]>;
-}
-
 export class Accessor<T extends Component = Component> {
     public entity = -1;
-    public data: any;
+    public readonly data!: T extends Component<infer Type, string, any> 
+        ? Type extends Constructor 
+            ? DeepReadonly<InstanceType<Type>> 
+            : DeepReadonly<Type>
+        : never;
     public component!: T;
 
-    public mutate(mutator: (current: ComponentArgDataType<T>) => ComponentSetDataType<T> | void): void {
+    public mutate(mutator: (current: ComponentArgDataType<T>) => ComponentReadonlyDataType<T> | void): void {
         this.component.mutate(this.entity, mutator);
     }
 }
+
+export type ComponentAccessorTuple<T extends readonly Component<any, any, any>[]> = {
+    [K in keyof T]: Accessor<T[K]>;
+}
+
+export type ReadonlyDataMethod<T extends Accessor> = (data: ComponentReadonlyDataType<T['data']>) => void;
 
 /**
  * Class used to access and automatically manage component-type information.
@@ -242,7 +248,7 @@ export class Component<Type extends Constructor | Value = Constructor | Value, N
 
     }
 
-    public static getQueryComponents(entities: number[], types: Component[]): DataType<any, any>[] {
+    public static getQueryComponents(entities: number[], types: (readonly Component[])): DataType<any, any>[] {
 
         const entitiesLength = entities.length;
         const typesLength = types.length;

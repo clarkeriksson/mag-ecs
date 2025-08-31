@@ -1,5 +1,4 @@
-export { System } from './core/system.js';
-export { component } from './core/component.js'
+export { Accessor, component } from './core/component.js';
 export { World } from './core/world.js';
 export { MagEvent } from './core/mag-event.js';
 export { Query } from './core/query.js';
@@ -19,4 +18,8 @@ export type {
     Value,
     ValueObject,
     DataType,
+    Mutator,
+    ReadonlyDataMethod,
+    ComponentReadonlyDataType,
+    Component
 } from './core/component.js';

@@ -1,5 +1,13 @@
 // noinspection JSUnusedGlobalSymbols
 
+import {
+    IS_CLASS,
+    IS_VALUE,
+    IS_BOOLEAN,
+    IS_TAG,
+    IS_READONLY,
+} from "../const/symbols.js";
+
 import { Bitset } from "../util/bitset.js";
 import { SparseSet } from "../util/sparse-set.js";
 
@@ -9,69 +17,104 @@ export type Tupled<T extends readonly any[]> = { [K in keyof T]: T[K] };
 
 export type Constructor<T = any, N extends string = string> = { new(...args: any[]): T, name: N };
 
-type UnionToArray<T> = T extends any ? T[] : never;
-
-/**
- * Non-nullish primitive types used in mag-ecs.
- */
-export type ValuePrimitive = number | string | boolean;
-/**
- * Array types with non-nullish primitive type data used in mag-ecs.
- */
-export type ValueArray = UnionToArray<ValuePrimitive>;
-/**
- * Union of primitive and array value types.
- */
-export type Value = ValuePrimitive | ValueArray;
-/**
- * Restricted object type where any leaf properties must be primitives or arrays of primitives.
- */
-export type ValueObject = { [key: string]: Value | ValueObject };
-
 /**
  * Type resolving to the instance type of the generic type parameter.
  */
-export type DataType<T extends Constructor | Value, R extends true | false> =
-    T extends Constructor ? (R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>) : T;
+// export type DataType<T extends Constructor | Value, R extends true | false> =
+//     T extends Constructor ? (R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>) : T;
 
-export type ComponentDataType<T extends Component<any, any, any>> =
+// export type ComponentDataType<T extends Component<any, any, any>> =
+//     T extends Component<infer Type, string, infer Readonly>
+//         ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>) : Type
+//         : never;
+
+// export type ArgDataType<T extends Constructor | Value, R extends true | false> =
+//     T extends Constructor ? (R extends true ? never : InstanceType<T>) : (R extends true ? never : T);
+
+// export type ComponentArgDataType<T extends Component<any, any, any>> =
+//     T extends Component<infer Type, string, infer Readonly>
+//         ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>)
+//         : (Readonly extends true ? never : T)
+//         : never;
+
+// export type SetDataType<T extends Constructor | Value, R extends true | false> =
+//     T extends Constructor ? (R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>)
+//     : (R extends true ? never : T);
+
+// export type ComponentReadonlyDataType<T extends Component<any, any, any>> =
+//     T extends Component<infer Type, string, infer Readonly>
+//         ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>)
+//         : (Readonly extends true ? never : T)
+//         : never;
+
+// export type Mutator<Type extends Constructor | Value, Readonly extends true | false> =
+//     (current: ArgDataType<Type, Readonly>) => SetDataType<Type, Readonly> | void;
+
+// export type AdderParameters<Type extends Constructor | Value> =
+//     Type extends Constructor
+//         ? ConstructorParameters<Type>
+//         : [Type];
+
+// export type ComponentAccessor<T extends Component<any, any, any>> =
+//     T extends Component<infer Type, string, infer Readonly> ? {
+//         readonly data: DataType<Type, Readonly>;
+//         readonly component: T;
+//         mutate: Readonly extends true ? never : (mutator: Mutator<Type, Readonly>) => void;
+//     } : never;
+
+export type JSONValue = string | number | boolean | null | JSONObject | JSONArray;
+export interface JSONObject { [key: string]: JSONValue; }
+export interface JSONArray extends Array<JSONValue> { }
+
+export type PrimitiveCtors = StringConstructor | NumberConstructor | BooleanConstructor;
+export type PrimitiveFromCtor<T extends PrimitiveCtors> =
+    T extends StringConstructor ? string :
+    T extends NumberConstructor ? number :
+    T extends BooleanConstructor ? boolean :
+    never;
+
+export interface SerializableCtor<T = any, J = JSONValue> {
+    new(...args: any[]): T;
+    fromJSON(json: J): T;
+    toJSON(value: T): J;
+}
+
+export type MagDataCtor<T = any, J = JSONValue> =
+    | PrimitiveCtors
+    | SerializableCtor<T, J>;
+
+export type MagPrimitiveInstance<T extends PrimitiveCtors, R extends boolean> = PrimitiveFromCtor<T>;
+export type MagArgPrimitiveInstance<T extends PrimitiveCtors, R extends boolean> = 
+    R extends true ? never : PrimitiveFromCtor<T>;
+export type MagReturnPrimitiveInstance<T extends PrimitiveCtors, R extends boolean> =
+    R extends true ? never : PrimitiveFromCtor<T>;
+export type MagCtorInstance<T extends SerializableCtor<any, any>, R extends boolean> =
+    R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>;
+export type MagArgCtorInstance<T extends SerializableCtor<any, any>, R extends boolean> =
+    R extends true ? never : InstanceType<T>;
+export type MagReturnCtorInstance<T extends SerializableCtor<any, any>, R extends boolean> =
+    R extends true ? never : InstanceType<T>;
+
+export type MagDataCtorInstance<T extends MagDataCtor, R extends boolean> =
+    T extends PrimitiveCtors ? MagPrimitiveInstance<T, R> :
+    T extends SerializableCtor<any, any> ? MagCtorInstance<T, R> :
+    never;
+
+export type MagDataCtorInstanceByComponent<T extends Component<any, any, any>> =
     T extends Component<infer Type, string, infer Readonly>
-        ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>) : Type
+        ? MagDataCtorInstance<Type, Readonly>
         : never;
 
-export type ArgDataType<T extends Constructor | Value, R extends true | false> =
-    T extends Constructor ? (R extends true ? never : InstanceType<T>) : (R extends true ? never : T);
-
-export type ComponentArgDataType<T extends Component<any, any, any>> =
+export type MagComponentArgType<T extends Component<any, any, any>> =
     T extends Component<infer Type, string, infer Readonly>
-        ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>)
-        : (Readonly extends true ? never : T)
+        ? Type extends MagDataCtor
+            ? Type extends SerializableCtor<any, any>
+                ? MagArgCtorInstance<Type, Readonly>
+                    ? Type extends PrimitiveCtors
+                        ? MagArgPrimitiveInstance<Type, Readonly>
+                        : never
+            : never
         : never;
-
-export type SetDataType<T extends Constructor | Value, R extends true | false> =
-    T extends Constructor ? (R extends true ? DeepReadonly<InstanceType<T>> : InstanceType<T>)
-    : (R extends true ? never : T);
-
-export type ComponentReadonlyDataType<T extends Component<any, any, any>> =
-    T extends Component<infer Type, string, infer Readonly>
-        ? Type extends Constructor ? (Readonly extends true ? DeepReadonly<InstanceType<Type>> : InstanceType<Type>)
-        : (Readonly extends true ? never : T)
-        : never;
-
-export type Mutator<Type extends Constructor | Value, Readonly extends true | false> =
-    (current: ArgDataType<Type, Readonly>) => SetDataType<Type, Readonly> | void;
-
-export type AdderParameters<Type extends Constructor | Value> =
-    Type extends Constructor
-        ? ConstructorParameters<Type>
-        : [Type];
-
-export type ComponentAccessor<T extends Component<any, any, any>> =
-    T extends Component<infer Type, string, infer Readonly> ? {
-        readonly data: DataType<Type, Readonly>;
-        readonly component: T;
-        mutate: Readonly extends true ? never : (mutator: Mutator<Type, Readonly>) => void;
-    } : never;
 
 export class Accessor<T extends Component = Component> {
     public entity = -1;
@@ -87,30 +130,34 @@ export class Accessor<T extends Component = Component> {
     }
 }
 
-export type ComponentAccessorTuple<T extends readonly Component<any, any, any>[]> = {
-    [K in keyof T]: Accessor<T[K]>;
-}
+// export type ComponentAccessorTuple<T extends readonly Component<any, any, any>[]> = {
+//     [K in keyof T]: Accessor<T[K]>;
+// }
 
-export type ReadonlyDataMethod<T extends Accessor> = (data: ComponentReadonlyDataType<T['data']>) => void;
+// export type ReadonlyDataMethod<T extends Accessor> = (data: ComponentReadonlyDataType<T['data']>) => void;
 
 /**
  * Class used to access and automatically manage component-type information.
  * @class
  */
-export class Component<Type extends Constructor | Value = Constructor | Value, Name extends string = string, Readonly extends boolean = boolean> {
+export class Component<
+    Type extends MagDataCtor = MagDataCtor, 
+    Name extends string = string, 
+    Readonly extends boolean = boolean
+> {
 
     private static _nextId: number = 0;
 
     private static _bitsetCache: Map<Component<any, string, boolean>[], Bitset> = new Map();
 
-    private readonly __isClassType: boolean;
-    private readonly __isValueType: boolean;
-    private readonly __isBooleanType: boolean;
-    private readonly __isTagType: boolean;
+    private readonly [IS_CLASS]: boolean;
+    private readonly [IS_VALUE]: boolean;
+    private readonly [IS_BOOLEAN]: boolean;
+    private readonly [IS_TAG]: boolean;
 
-    private readonly __readonly: Readonly;
+    private readonly [IS_READONLY]: Readonly;
 
-    private readonly __name: Name;
+    private readonly _name: Name;
     private readonly _id: number;
     private readonly _idBitset: Bitset;
 
@@ -121,29 +168,23 @@ export class Component<Type extends Constructor | Value = Constructor | Value, N
     private readonly _store: SparseSet<DataType<Type, Readonly>>;
 
     private constructor({
-        isClassType,
-        isValueType,
-        isBooleanType,
         isTagType,
         isReadonly,
         name,
         ctor,
                         }: {
-        isClassType: boolean;
-        isValueType: boolean;
-        isBooleanType: boolean;
         isTagType: boolean;
         isReadonly: Readonly;
         name: Name;
         ctor?: Constructor;
     }) {
 
-        this.__isClassType = isClassType;
-        this.__isValueType = isValueType;
-        this.__isBooleanType = isBooleanType;
-        this.__isTagType = isTagType;
-        this.__readonly = isReadonly;
-        this.__name = name;
+        this[IS_CLASS] = true;
+        this[IS_VALUE] = true;
+        this[IS_BOOLEAN] = true;
+        this[IS_TAG] = isTagType;
+        this[IS_READONLY] = isReadonly;
+        this._name = name;
 
         this._store = new SparseSet<DataType<Type, Readonly>>();
 
@@ -160,9 +201,6 @@ export class Component<Type extends Constructor | Value = Constructor | Value, N
     public static fromClass<T extends Constructor, N extends string, R extends boolean>({ ctor, name, readonly }: { ctor: T, name: N, readonly: R }) {
 
         return new Component<T, N, R>({
-            isClassType: true,
-            isValueType: false,
-            isBooleanType: false,
             isTagType: false,
             isReadonly: readonly,
             name: name,
@@ -176,9 +214,6 @@ export class Component<Type extends Constructor | Value = Constructor | Value, N
         return <N extends string, R extends boolean>({ name, readonly }: { name: N, readonly: R }) => {
 
             return new Component<T, N, R>({
-                isClassType: false,
-                isValueType: true,
-                isBooleanType: false,
                 isTagType: false,
                 isReadonly: readonly,
                 name: name,

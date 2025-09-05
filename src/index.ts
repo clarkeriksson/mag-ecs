@@ -11,15 +11,10 @@ export { TimeContext } from './util/time-context.js';
 
 export type {
     Constructor,
-    Tupled,
     // Data Utility Types
-    ValuePrimitive,
-    ValueArray,
-    Value,
-    ValueObject,
     DataType,
     Mutator,
     ReadonlyDataMethod,
-    ComponentReadonlyDataType,
+    ReadDataTypeByComponent as ComponentReadonlyDataType,
     Component
 } from './core/component.js';

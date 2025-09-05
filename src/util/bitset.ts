@@ -453,6 +453,18 @@ export class Bitset
         return newReserved;
     }
 
+    public getActiveIndices(): number[] {
+
+        const indices: number[] = [];
+        for (let i = 0; i < Bitset._flagCount; i++) {
+            if (this.get(i)) {
+                indices.push(i);
+            }
+        }
+        return indices;
+
+    }
+
     /**
      * Rents a pooled {@link Bitset} instance for use after clearing it.
      */

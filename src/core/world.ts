@@ -1,7 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 import {Bitset} from "../util/bitset.js";
 import {Query} from "./query.js";
-import {Component, Accessor, ComponentAccessorTuple, DataType, Constructor, Value, component} from "./component.js";
+import {Component, Accessor, ComponentAccessorTuple, MagDataCtor, ReadDataType, SerializableCtor, component} from "./component.js";
 
 /**
  * @class World
@@ -85,7 +85,7 @@ class World {
 
     }
 
-    public add<Type extends Constructor | Value, Readonly extends true | false>(entity: number, type: Component<Type, string, Readonly>, value: DataType<Type, Readonly>) {
+    public add<Type extends MagDataCtor, Readonly extends true | false>(entity: number, type: Component<Type, string, Readonly>, value: ReadDataType<Type, Readonly>) {
 
         type.add(entity, value);
 

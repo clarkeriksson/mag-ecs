@@ -1,7 +1,4 @@
 // noinspection JSUnusedGlobalSymbols
-
-import { type SerializableCtor } from "../core/component";
-
 export type DeepReadonly<T> =
     T extends Array<infer U> // arrays become readonly arrays
         ? ReadonlyArray<DeepReadonly<U>>

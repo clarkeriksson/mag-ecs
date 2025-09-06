@@ -1,5 +1,12 @@
 // noinspection JSUnusedGlobalSymbols
 
+import type {
+    ValidMagCtor,
+    CtorMutArgData,
+    CtorData,
+    CtorReadData
+} from "../globals";
+
 import {
     IS_CLASS,
     IS_VALUE,
@@ -30,14 +37,20 @@ export type CmpReadonly<C extends Component> =
         ? Readonly
         : never;
 
+export type MutFn<T extends Component = Component> = (current: CtorMutArgData<CmpCtor<T>, CmpReadonly<T>>) => CtorMutArgData<CmpCtor<T>, CmpReadonly<T>> | void;
+
 export class Accessor<T extends Component = Component> {
     public entity = -1;
     public readonly data!: CtorReadData<CmpCtor<T>, CmpReadonly<T>>;
     public component!: T;
 
-    public mutate(mutator: (current: CtorMutArgData<CmpCtor<T>, CmpReadonly<T>>) => CtorMutArgData<CmpCtor<T>, CmpReadonly<T>> | void): void {
+    public mutate(mutator: CmpReadonly<T> extends true ? never : MutFn<T>): void {
         this.component.mutate(this.entity, mutator);
     }
+}
+
+export type CmpAccTuple<T extends readonly Component[] = readonly Component[]> = {
+    [K in keyof T]: Accessor<T[K]>
 }
 
 /**
@@ -158,13 +171,13 @@ export class Component<
 
     }
 
-    public mutate(entity: number, mutator: Readonly extends true ? never : (current: CtorMutArgData<Type, Readonly>) => CtorMutArgData<Type, Readonly> | void): void {
+    public mutate(entity: number, mutator: MutFn<Component<Type, string, Readonly>>): void {
 
-        const current = this.get(entity) as CtorReadData<Type, false>;
+        const current = this.get(entity) as CtorData<Type>;
 
         if (!current) return;
 
-        const newValue = mutator(current);
+        const newValue = mutator(current as CtorMutArgData<Type, Readonly>);
 
         if (newValue !== undefined) {
 
@@ -206,20 +219,12 @@ export class Component<
 
 }
 
-export function component<N extends string>(name: N) {
+export function component<T extends ValidMagCtor, N extends string>(ctor: T, name: N) {
 
     return {
 
-        class: <T extends ValidMagCtor = ValidMagCtor>(ctor: T) => {
-
-            return {
-
-                immutable: () => Component.fromClass({ ctor, name, readonly: true }),
-                mutable: () => Component.fromClass({ ctor, name, readonly: false }),
-
-            }
-
-        }
+        immutable: () => Component.fromClass({ ctor, name, readonly: true }),
+        mutable: () => Component.fromClass({ ctor, name, readonly: false }),
 
     }
 
@@ -238,12 +243,12 @@ class TestClass {
     }
 }
 
-var test = component("Name").class(Boolean).immutable();
+var test = component(Boolean, "Name").immutable();
 var testAcc = new Accessor<typeof test>();
 testAcc.component = test;
 testAcc.entity = 1;
 (testAcc.data as any) = new TestClass("Hello");
 
-testAcc.mutate((current) => {
-    current = false;
-})
+// testAcc.mutate((current) => {
+//     current = false;
+// });

@@ -1,6 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
-import type { Constructor } from "./component.js";
+import type { ClassDefinition } from "./component.js";
 
 /**
  * A utility type describing a function taking in event data of type T and returning void.
@@ -11,13 +11,13 @@ export type MagEventListener<T> = (event: T) => void;
  * Pseudo-static class used to access and automatically manage event-type information.
  * @class
  */
-export class MagEvent
+export class Bark
 {
     /**
-     * Holds the instances of {@link MagEvent} for each {@link Constructor}.
+     * Holds the instances of {@link Bark} for each {@link ClassDefinition}.
      * @private
      */
-    private static readonly _statics: Map<Constructor, MagEvent> = new Map();
+    private static readonly _statics: Map<ClassDefinition, Bark> = new Map();
 
     /**
      * Holds the user-registered event run categories in a static array.
@@ -26,13 +26,13 @@ export class MagEvent
     private static readonly _runGroups: string[] = ["immediate"];
 
     /**
-     * The internal representation of the {@link MagEvent} id.
+     * The internal representation of the {@link Bark} id.
      * @private
      */
     private readonly _id: number;
 
     /**
-     * The {@link MagEvent} id, for when it is useful to identify event-types numerically.
+     * The {@link Bark} id, for when it is useful to identify event-types numerically.
      */
     public get id(): number { return this._id; }
 
@@ -40,7 +40,7 @@ export class MagEvent
      * The class constructor of the event-type;
      * @private
      */
-    private readonly _ctor: Constructor;
+    private readonly _ctor: ClassDefinition;
 
     /**
      * Holds events for this event-type as an array of typed data.
@@ -61,12 +61,12 @@ export class MagEvent
     private readonly _listeners: Map<string, Function[]>;
 
     /**
-     * Creates an instance of {@link MagEvent}.
+     * Creates an instance of {@link Bark}.
      * @param ctor
      * @param id
      * @private
      */
-    private constructor(ctor: Constructor, id: number)
+    private constructor(ctor: ClassDefinition, id: number)
     {
         this._ctor = ctor;
         this._id = id;
@@ -76,11 +76,11 @@ export class MagEvent
 
         this._listeners.set("immediate", this._immediateListeners);
 
-        MagEvent._statics.set(this._ctor, this);
+        Bark._statics.set(this._ctor, this);
     }
 
     /**
-     * Processes events in the given group for this {@link MagEvent} instance.
+     * Processes events in the given group for this {@link Bark} instance.
      * @param group
      * @private
      */
@@ -99,30 +99,30 @@ export class MagEvent
     }
 
     /**
-     * Provides the unique {@link MagEvent} instance associated with the class provided.
+     * Provides the unique {@link Bark} instance associated with the class provided.
      * Automatically sets up a new instance if necessary.
      * @param ctor
      * @constructor
      */
-    public static T(ctor: Constructor): MagEvent
+    public static T(ctor: ClassDefinition): Bark
     {
-        let $static = MagEvent._statics.get(ctor);
+        let $static = Bark._statics.get(ctor);
         return $static ?? this.addUnchecked(ctor);
     }
 
     /**
-     * Creates a new instance of {@link MagEvent} from the given constructor.
+     * Creates a new instance of {@link Bark} from the given constructor.
      * Does not check for uniqueness, use with caution.
      * @param ctor
      * @private
      */
-    private static addUnchecked(ctor: Constructor): MagEvent
+    private static addUnchecked(ctor: ClassDefinition): Bark
     {
         const id = this._statics.size;
 
-        const event = new MagEvent(ctor, id);
+        const event = new Bark(ctor, id);
 
-        MagEvent._statics.set(ctor, event);
+        Bark._statics.set(ctor, event);
 
         return event;
     }
@@ -133,9 +133,9 @@ export class MagEvent
      * @param ctor
      * @param event
      */
-    public static emit<T>(ctor: Constructor<T>, event: T): boolean
+    public static emit<T>(ctor: ClassDefinition<T>, event: T): boolean
     {
-        const magEvent = MagEvent.T(ctor);
+        const magEvent = Bark.T(ctor);
 
         magEvent._eventBus.push(event);
 
@@ -148,7 +148,7 @@ export class MagEvent
     }
 
     /**
-     * Adds the given run group to add existing instances of {@link MagEvent}.
+     * Adds the given run group to add existing instances of {@link Bark}.
      * @param group
      */
     public static registerRunGroup(group: string): boolean
@@ -166,17 +166,17 @@ export class MagEvent
             }
         }
 
-        MagEvent._runGroups.push(group);
+        Bark._runGroups.push(group);
         return success;
     }
 
     /**
-     * Processes all {@link MagEvent}(s) of any registered type for the run group given.
+     * Processes all {@link Bark}(s) of any registered type for the run group given.
      * @param group
      */
     public static run(group: string): boolean
     {
-        if (!MagEvent._runGroups.includes(group)) return false;
+        if (!Bark._runGroups.includes(group)) return false;
 
         for (const [_, instance] of this._statics)
         {
@@ -187,15 +187,15 @@ export class MagEvent
     }
 
     /**
-     * Registers a {@link MagEvent} listener to the given group.
+     * Registers a {@link Bark} listener to the given group.
      * If no group is provided, it registers to the "immediate" group.
      * @param ctor
      * @param listener
      * @param group
      */
-    public static register<T>(ctor: Constructor<T>, listener: MagEventListener<T>, group: string = "immediate"): boolean
+    public static register<T>(ctor: ClassDefinition<T>, listener: MagEventListener<T>, group: string = "immediate"): boolean
     {
-        const instance = MagEvent.T(ctor);
+        const instance = Bark.T(ctor);
 
         const listeners = instance._listeners.get(group);
 

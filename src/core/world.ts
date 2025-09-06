@@ -1,7 +1,9 @@
 // noinspection JSUnusedGlobalSymbols
+import type { ValidMagCtor, CtorReadData } from "../globals.js";
+
 import {Bitset} from "../util/bitset.js";
 import {Query} from "./query.js";
-import {Component, Accessor, ComponentAccessorTuple, MagDataCtor, ReadDataType, SerializableCtor, component} from "./component.js";
+import {Component, Accessor, CmpAccTuple, component} from "./component.js";
 
 /**
  * @class World
@@ -85,7 +87,7 @@ class World {
 
     }
 
-    public add<Type extends MagDataCtor, Readonly extends true | false>(entity: number, type: Component<Type, string, Readonly>, value: ReadDataType<Type, Readonly>) {
+    public add<Type extends ValidMagCtor, Readonly extends true | false>(entity: number, type: Component<Type, string, Readonly>, value: CtorReadData<Type, Readonly>) {
 
         type.add(entity, value);
 
@@ -97,7 +99,7 @@ class World {
 
     }
 
-    public run<T extends readonly Component<any, any, any>[]>(query: Query<T>, callback: (entity: number, types: ComponentAccessorTuple<T>) => void) {
+    public run<T extends readonly Component<any, any, any>[]>(query: Query<T>, callback: (entity: number, types: CmpAccTuple<T>) => void) {
 
         this._ensureFresh(query);
 
@@ -135,7 +137,7 @@ class World {
 
             }
 
-            callback(entity, cachedAccessors as ComponentAccessorTuple<T>);
+            callback(entity, cachedAccessors as CmpAccTuple<T>);
 
         }
 
@@ -209,9 +211,9 @@ class World {
 export { World };
 
 // const world = new World();
-// const classCmp = component("classCmp").class(class ClassCmp { public num: number = 0; }).immutable();
-// const cmp = component("cmp").value<number>().immutable();
+// const classCmp = component(class ClassCmp { public num: number = 0; }, "classCmp").immutable();
+// const cmp = component(Number, "cmp").immutable();
 // const query = new Query().all(cmp, classCmp);
 // world.run(query, function(entity, [acc, cla]) {
-//
+
 // });

@@ -19,10 +19,10 @@ function getTestCmps<T extends ValidMagCtor, N extends string>(ctor: T, name: N)
     imu2: Component<T, TestCmpName<N, "Imu", "2">, true>,
 } {
     return {
-        mut1: component(ctor, getTestName(name, "Mut", "1")).mutable(),
-        mut2: component(ctor, getTestName(name, "Mut", "2")).mutable(),
-        imu1: component(ctor, getTestName(name, "Imu", "1")).immutable(),
-        imu2: component(ctor, getTestName(name, "Imu", "2")).immutable(),
+        mut1: component(getTestName(name, "Mut", "1")).mutable(ctor),
+        mut2: component(getTestName(name, "Mut", "2")).mutable(ctor),
+        imu1: component(getTestName(name, "Imu", "1")).immutable(ctor),
+        imu2: component(getTestName(name, "Imu", "2")).immutable(ctor),
     }
 }
 

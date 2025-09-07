@@ -5,3 +5,5 @@ export const IS_TAG = Symbol("tag");
 export const IS_READONLY = Symbol("readonly");
 
 export const CTOR = Symbol("ctor");
+
+export const SERIALIZED = Symbol("serialized");

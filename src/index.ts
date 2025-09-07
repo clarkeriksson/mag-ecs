@@ -13,9 +13,7 @@ export type {
     ValueArray,
     Value,
     UnionToArray,
-    PrimitiveClass,
     PrimitiveCtor,
-    PrimitiveFromClassType,
     PrimitiveFromCtorType,
     JSONValue,
     JSONObject,
@@ -24,11 +22,11 @@ export type {
     Serializable,
     SerializableCtor,
     ValidMagCtor,
-    ValidMagClass,
     CtorData,
     CtorReadData,
     CtorMutArgData,
     DeepReadonly,
+    MagTypes,
 } from "./globals";
 
 export type {

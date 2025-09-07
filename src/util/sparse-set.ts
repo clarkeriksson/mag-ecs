@@ -163,4 +163,18 @@ export class SparseSet<T> implements ISparseSet<T>
         return this._denseValue[denseIndex];
     }
 
+    public map(fn: (entity: number, value: T) => void) {
+        for (let i = 0; i < this._denseIndex.length; i++) {
+            fn(this._denseIndex[i], this._denseValue[i]);
+        }
+    }
+
+    public static fromList<T>(entries: {entity: number, value: T}[]): SparseSet<T> {
+        const result = new SparseSet<T>();
+        for (let i = 0; i < entries.length; i++) {
+            result.add(entries[i].entity, entries[i].value);
+        }
+        return result;
+    }
+
 }

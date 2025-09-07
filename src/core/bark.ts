@@ -5,7 +5,7 @@ import type { ClassDefinition } from "./component.js";
 /**
  * A utility type describing a function taking in event data of type T and returning void.
  */
-export type MagEventListener<T> = (event: T) => void;
+export type BarkListener<T> = (event: T) => void;
 
 /**
  * Pseudo-static class used to access and automatically manage event-type information.
@@ -193,7 +193,7 @@ export class Bark
      * @param listener
      * @param group
      */
-    public static register<T>(ctor: ClassDefinition<T>, listener: MagEventListener<T>, group: string = "immediate"): boolean
+    public static register<T>(ctor: ClassDefinition<T>, listener: BarkListener<T>, group: string = "immediate"): boolean
     {
         const instance = Bark.T(ctor);
 

@@ -68,13 +68,13 @@ export type CmpAccTuple<T extends readonly Component[] = readonly Component[]> =
  * @class
  */
 export class Component<
-    Inst = any,
+    Instance = any,
     Data = any,
     Json extends JSONValue = JSONValue,
-    Type extends MagDataClassCtor<Inst, Json, Data> = MagDataClassCtor<Inst, Json, Data>, 
+    Type extends MagDataClassCtor<Instance, Json, Data> = MagDataClassCtor<Instance, Json, Data>, 
     Name extends string = string, 
-    Read extends boolean = boolean,
-    Comm extends boolean = boolean,
+    Readonly extends boolean = boolean,
+    Shared extends boolean = boolean,
 > {
 
     private static _nextId: number = 0;
@@ -88,13 +88,13 @@ export class Component<
     private readonly [IS_BOOLEAN]: boolean;
     private readonly [IS_TAG]: boolean;
 
-    private readonly [IS_READONLY]: Read;
+    private readonly [IS_READONLY]: Readonly;
 
     private readonly _name: Name;
     private readonly _id: number;
     private readonly _idBitset: Bitset;
 
-    private readonly _constructor: MagDataClassCtor<Inst, Json, Data>;
+    private readonly _constructor: MagDataClassCtor<Instance, Json, Data>;
 
     public get id(): number { return this._id; }
 
@@ -107,9 +107,9 @@ export class Component<
         ctor,
     }: {
         isTagType: boolean;
-        isReadonly: Read;
+        isReadonly: Readonly;
         name: Name;
-        ctor: MagDataClassCtor<Inst, Json, Data>;
+        ctor: MagDataClassCtor<Instance, Json, Data>;
     }) {
 
         this[IS_CLASS] = true;
@@ -170,9 +170,9 @@ export class Component<
 
     }
 
-    public get(entity: number): CtorReadData<Type, Read> | undefined {
+    public get(entity: number): CtorReadData<Type, Readonly> | undefined {
 
-        return this._store.get(entity) as CtorReadData<Type, Read> | undefined;
+        return this._store.get(entity) as CtorReadData<Type, Readonly> | undefined;
 
     }
 
@@ -201,13 +201,13 @@ export class Component<
 
     }
 
-    public mutate(entity: number, mutator: MutFn<Inst, Data, Json, Type, Name, Read>): void {
+    public mutate(entity: number, mutator: MutFn<Instance, Data, Json, Type, Name, Readonly>): void {
 
         const current = this.get(entity) as CtorData<Type>;
 
         if (!current) return;
 
-        const newValue = mutator(current as CtorMutArgData<Type, Read>);
+        const newValue = mutator(current as CtorMutArgData<Type, Readonly>);
 
         if (newValue !== undefined) {
 

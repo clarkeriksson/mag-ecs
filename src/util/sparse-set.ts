@@ -143,6 +143,16 @@ export class SparseSet<T> implements ISparseSet<T>
 
     }
 
+    public __getMany(indices: number[], target: T[]): void {
+
+        for (let i = 0; i < indices.length; i++) {
+
+            target[i] = this._denseValue[this._sparse[indices[i]!]!];
+
+        }
+
+    }
+
     /**
      * Checks for the existence of an index value in this {@link SparseSet}.
      * @param index
@@ -169,12 +179,10 @@ export class SparseSet<T> implements ISparseSet<T>
         }
     }
 
-    public static fromList<T>(entries: {entity: number, value: T}[]): SparseSet<T> {
-        const result = new SparseSet<T>();
+    public fromList(entries: {entity: number, data: T}[]) {
         for (let i = 0; i < entries.length; i++) {
-            result.add(entries[i].entity, entries[i].value);
+            this.add(entries[i].entity, entries[i].data);
         }
-        return result;
     }
 
 }

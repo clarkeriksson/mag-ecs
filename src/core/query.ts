@@ -7,19 +7,19 @@ import {Component} from "./component.js";
  * Specifies the types of entities iterated in a query-like operation.
  * @class
  */
-export class Query<T extends readonly Component<any, string, any>[] = Component<any, string, any>[]>
+export class Query<T extends readonly Component[] = Component[]>
 {
     /**
      * Internal representation of {@link paramTypes}.
      * @private
      */
-    private _paramTypes: Component<any, string, any>[];
+    private _paramTypes: Component[];
 
     /**
      * The types directly supplied into query callback functions for this {@link Query}.
      * This corresponds to types provided to either {@link all} or {@link only} (exclusive).
      */
-    public get paramTypes(): Component<any, string, any>[]
+    public get paramTypes(): Component[]
     {
         return this._paramTypes;
     }
@@ -73,7 +73,7 @@ export class Query<T extends readonly Component<any, string, any>[] = Component<
      * Should not be used with any other query modifying methods.
      * @param types The types.
      */
-    public all<T extends Component<any, string, any>[]>(...types: T): Query<T>
+    public all<T extends Component<any, any, any, any, any, any>[]>(...types: T): Query<T>
     {
         if (this._only.setFlagCount !== 0) throw new Error("Attempted to apply a 'withAll' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
@@ -88,7 +88,7 @@ export class Query<T extends readonly Component<any, string, any>[] = Component<
      * Should not be used with the {@link Query.only} method.
      * @param types The types.
      */
-    public none(...types: Component<any, string, any>[]): Query<T>
+    public none(...types: Component<any, any, any, any, any, any>[]): Query<T>
     {
         if (this._only.setFlagCount !== 0) throw new Error("Attempted to apply a 'withNone' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
@@ -102,7 +102,7 @@ export class Query<T extends readonly Component<any, string, any>[] = Component<
      * Should not be used with the {@link Query.only} method.
      * @param types The types.
      */
-    public one(...types: Component<any, string, any>[]): Query<T>
+    public one(...types: Component<any, any, any, any, any, any>[]): Query<T>
     {
         if (this._only.setFlagCount !== 0) throw new Error("Attempted to apply a 'withOne' filter on a query " +
             "definition with a preexisting 'withOnly' filter.");
@@ -115,7 +115,7 @@ export class Query<T extends readonly Component<any, string, any>[] = Component<
      * Modifies the {@link Query} to require at least one of the given types.
      * @param types The types.
      */
-    public some(...types: Component<any, string, any>[]): Query<T>
+    public some(...types: Component<any, any, any, any, any, any>[]): Query<T>
     {
         this._some = Component.bitsetFromTypes(...types);
         return this;
@@ -126,7 +126,7 @@ export class Query<T extends readonly Component<any, string, any>[] = Component<
      * Should not be used with any other query modifying methods.
      * @param types The types.
      */
-    public only<T extends Component<any, string, any>[]>(...types: T): Query<T>
+    public only<T extends Component<any, any, any, any, any, any>[]>(...types: T): Query<T>
     {
         if (this._all.setFlagCount !== 0 || this._none.setFlagCount !== 0) throw new Error("Attempted to" +
             " apply a " +

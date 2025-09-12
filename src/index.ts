@@ -9,19 +9,16 @@ export { SparseTagSet } from './util/sparse-tag-set.js';
 export { TimeContext } from './util/time-context.js';
 
 export type {
-    ValuePrimitive,
-    ValueArray,
     Value,
     UnionToArray,
-    PrimitiveCtor,
-    PrimitiveFromCtorType,
+    MagValueCtor as PrimitiveCtor,
+    DataFromMagCtor as PrimitiveFromCtorType,
     JSONValue,
     JSONObject,
     JSONArray,
-    JSONRepresentation,
+    JSON as JSONRepresentation,
     Serializable,
-    SerializableCtor,
-    ValidMagCtor,
+    MagDataClassCtor as SerializableCtor,
     CtorData,
     CtorReadData,
     CtorMutArgData,

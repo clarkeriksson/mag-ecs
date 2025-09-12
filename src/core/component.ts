@@ -1,16 +1,13 @@
 // noinspection JSUnusedGlobalSymbols
 
 import type {
-    ValidMagCtor,
+    MagDataClassCtor,
     CtorMutArgData,
     CtorData,
     CtorReadData,
-    JSONRepresentation,
-    SerializableCtor,
+    JSON,
     Serializable,
     JSONValue,
-    SerializationTarget,
-    IsSerializable,
 } from "../globals";
 
 import {
@@ -23,45 +20,46 @@ import {
     IS_BOOLEAN,
     IS_TAG,
     IS_READONLY,
-    SERIALIZED,
 } from "../const/symbols.js";
 
 import { Bitset } from "../util/bitset.js";
 import { SparseSet } from "../util/sparse-set.js";
+import { Query } from "./query";
+import { World } from "./world";
 
 export interface ClassDefinition<T = any> {
     new(...args: any[]): T;
 }
 
-export type CmpCtor<C extends Component> =
-    C extends Component<infer Type, string, any>
-        ? Type
-        : never;
+export type MutFn<
+    Inst,
+    Data,
+    Json extends JSONValue,
+    Type extends MagDataClassCtor<Inst, Json, Data>, 
+    Name extends string, 
+    Read extends boolean
+> = 
+    (current: CtorMutArgData<Type, Read>) => CtorMutArgData<Type, Read> | void;
 
-export type CmpName<C extends Component> =
-    C extends Component<any, infer Name, any>
-        ? Name
-        : never;
-
-export type CmpReadonly<C extends Component> =
-    C extends Component<any, string, infer Readonly>
-        ? Readonly
-        : never;
-
-export type MutFn<T extends Component = Component> = (current: CtorMutArgData<CmpCtor<T>, CmpReadonly<T>>) => CtorMutArgData<CmpCtor<T>, CmpReadonly<T>> | void;
-
-export class Accessor<T extends Component = Component> {
+export class Accessor<
+    Inst = unknown,
+    Data = unknown,
+    Json extends JSONValue = JSONValue,
+    Type extends MagDataClassCtor<Inst, Json, Data> = MagDataClassCtor<Inst, Json, Data>, 
+    Name extends string = string, 
+    Read extends boolean = boolean
+> {
     public entity = -1;
-    public readonly data!: CtorReadData<CmpCtor<T>, CmpReadonly<T>>;
-    public component!: T;
+    public readonly data!: CtorReadData<Type, Read>;
+    public component!: Component<Inst, Data, Json, Type, Name, Read>;
 
-    public mutate(mutator: CmpReadonly<T> extends true ? never : MutFn<T>): void {
+    public mutate(mutator: Read extends true ? never : MutFn<Inst, Data, Json, Type, Name, Read>): void {
         this.component.mutate(this.entity, mutator);
     }
 }
 
 export type CmpAccTuple<T extends readonly Component[] = readonly Component[]> = {
-    [K in keyof T]: Accessor<T[K]>
+    [K in keyof T]: T[K] extends Component<infer Inst, infer Data, infer Json, infer Type, infer Name, infer Read> ? Accessor<Inst, Data, Json, Type, Name, Read> : never;
 }
 
 /**
@@ -70,45 +68,48 @@ export type CmpAccTuple<T extends readonly Component[] = readonly Component[]> =
  * @class
  */
 export class Component<
-    Type extends ValidMagCtor = ValidMagCtor, 
+    Inst = any,
+    Data = any,
+    Json extends JSONValue = JSONValue,
+    Type extends MagDataClassCtor<Inst, Json, Data> = MagDataClassCtor<Inst, Json, Data>, 
     Name extends string = string, 
-    Readonly extends boolean = boolean
+    Read extends boolean = boolean,
+    Comm extends boolean = boolean,
 > {
 
     private static _nextId: number = 0;
 
-    private static _bitsetCache: Map<Component<any, string, boolean>[], Bitset> = new Map();
+    private static _bitsetCache: Map<Component[], Bitset> = new Map();
+
+    private static _nameMap: Map<string, Component> = new Map();
 
     private readonly [IS_CLASS]: boolean;
     private readonly [IS_VALUE]: boolean;
     private readonly [IS_BOOLEAN]: boolean;
     private readonly [IS_TAG]: boolean;
 
-    private readonly [IS_READONLY]: Readonly;
-    private readonly [SERIALIZED]: boolean;
+    private readonly [IS_READONLY]: Read;
 
     private readonly _name: Name;
     private readonly _id: number;
     private readonly _idBitset: Bitset;
 
-    private readonly _constructor: ValidMagCtor;
+    private readonly _constructor: MagDataClassCtor<Inst, Json, Data>;
 
     public get id(): number { return this._id; }
 
-    private readonly _store: SparseSet<CtorReadData<Type, Readonly>>;
+    private readonly _store: SparseSet<CtorData<Type>>;
 
-    private constructor({
+    public constructor({
         isTagType,
         isReadonly,
         name,
         ctor,
-        jsonOptOut = false,
     }: {
         isTagType: boolean;
-        isReadonly: Readonly;
+        isReadonly: Read;
         name: Name;
-        ctor: ValidMagCtor;
-        jsonOptOut?: boolean;
+        ctor: MagDataClassCtor<Inst, Json, Data>;
     }) {
 
         this[IS_CLASS] = true;
@@ -116,13 +117,10 @@ export class Component<
         this[IS_BOOLEAN] = true;
         this[IS_TAG] = isTagType;
         this[IS_READONLY] = isReadonly;
-
-        const typeOwnProps = Object.getOwnPropertyDescriptors(ctor);
-        this[SERIALIZED] = ("toJSON" in typeOwnProps) && ("fromJSON" in typeOwnProps) && !jsonOptOut;
         
         this._name = name;
 
-        this._store = new SparseSet<CtorReadData<Type, Readonly>>();
+        this._store = new SparseSet<CtorData<Type>>();
 
         this._id = Component._nextId;
         Component._nextId++;
@@ -132,49 +130,65 @@ export class Component<
 
         this._constructor = ctor;
 
+        Component._nameMap.set(this._name, this);
+
     }
 
-    public static fromClass<T extends ValidMagCtor, N extends string, R extends boolean>({ ctor, name, readonly, jsonOptOut = false }: { ctor: T, name: N, readonly: R, jsonOptOut?: boolean }) {
+    public static fromClass<
+        I,
+        D,
+        J extends JSONValue,
+        T extends MagDataClassCtor<I, J, D>, 
+        N extends string, 
+        R extends boolean
+    >({ ctor, name, readonly }: { ctor: T, name: N, readonly: R, jsonOptOut?: boolean }) {
 
-        return new Component<T, N, R>({
+        return new Component<I, D, J, T, N, R>({
             isTagType: false,
             isReadonly: readonly,
             name: name,
             ctor,
-            jsonOptOut,
         });
 
     }
 
-    public static tag<N extends string>({ name, jsonOptOut = false }: { name: N, jsonOptOut?: boolean }): Component<typeof MagTypes.Tag, N, true> {
-        return new Component<typeof MagTypes.Tag, N, true>({
+    public static tag<N extends string>({ name }: { name: N }) {
+
+        return new Component<
+            MagTypes.Tag,
+            true,
+            true,
+            typeof MagTypes.Tag, 
+            N, 
+            true
+        >({
             isTagType: true,
             isReadonly: true,
             name,
             ctor: MagTypes.Tag,
-            jsonOptOut,
-        })
-    }
-
-    public get(entity: number): CtorReadData<Type, Readonly> | undefined {
-
-        return this._store.get(entity);
+        });
 
     }
 
-    public __get(entity: number): CtorReadData<Type, Readonly> {
+    public get(entity: number): CtorReadData<Type, Read> | undefined {
+
+        return this._store.get(entity) as CtorReadData<Type, Read> | undefined;
+
+    }
+
+    public __get(entity: number): CtorData<Type> {
 
         return this._store.__get(entity)!;
 
     }
 
-    private _set(entity: number, value: CtorReadData<Type, Readonly>): void {
+    private _set(entity: number, value: CtorData<Type>): void {
 
         this._store.set(entity, value);
 
     }
 
-    public add(entity: number, value: CtorReadData<Type, Readonly>): boolean {
+    public add(entity: number, value: CtorData<Type>): boolean {
 
         return this._store.add(entity, value);
 
@@ -187,17 +201,17 @@ export class Component<
 
     }
 
-    public mutate(entity: number, mutator: MutFn<Component<Type, string, Readonly>>): void {
+    public mutate(entity: number, mutator: MutFn<Inst, Data, Json, Type, Name, Read>): void {
 
         const current = this.get(entity) as CtorData<Type>;
 
         if (!current) return;
 
-        const newValue = mutator(current as CtorMutArgData<Type, Readonly>);
+        const newValue = mutator(current as CtorMutArgData<Type, Read>);
 
         if (newValue !== undefined) {
 
-            this._store.set(entity, newValue as CtorReadData<Type, Readonly>);
+            this._store.set(entity, newValue as CtorData<Type>);
 
         }
 
@@ -233,118 +247,312 @@ export class Component<
 
     }
 
-    public toJSON() {
+    public static getQueryComponentLists<
+        Q extends Query,
+        Cmps extends readonly Component[] = Q extends Query<infer Types> ? Types : never,
+        Data extends readonly any[] = CmpDataTuple<Cmps>,
+        List = ToArrays<Data>,
+    >(query: Q, entities: number[]): List {
 
-        if (!this[SERIALIZED]) return;
+        const result = [];
 
-        const serializableCtor = this._constructor as SerializableCtor;
+        for (const component of query.paramTypes) {
+
+            const data: any[] = [];
+
+            component._store.__getMany(entities, data);
+
+            result.push(data);
+
+        }
+
+        return result as List;
+
+    }
+
+    public toJSON(): {
+        name: Name,
+        store: { entity: number, data: Json }[],
+    } {
 
         const result: {
             name: Name,
-            store: { entity: number, value: JSONValue }[],
+            store: { entity: number, data: Json }[],
         } = {
             name: this._name,
             store: [],
         };
 
-        this._store.map((entity: number, value: CtorReadData<Type, Readonly>) => {
-            
+        const ctor = this._constructor;
+
+        this._store.map((entity: number, value: Data) => {
+
+            result.store.push({
+
+                entity,
+                data: ctor.toJSON(value),
+
+            })
+
         });
 
         return result;
 
     }
 
-}
+    public static fromJSON(json: {
+        name: string,
+        store: { entity: number, data: JSONValue }[]
+    }) {
 
-class ComponentBuilder<
-    Type extends ValidMagCtor = ValidMagCtor,
-    Name extends string = string,
-    Readonly extends boolean = boolean
-> {
+        const component = Component._nameMap.get(json.name);
 
-    private ctor: ValidMagCtor | null = null;
-    private name: string | null = null;
-    private readonly: boolean | null = null;
-    private serialized: boolean | null = null;
+        if (!component) {
 
-    constructor() {
-        
-    }
+            throw new Error(`Component.fromJSON: failed to retrieve a component instance.`);
 
-    public type<T extends ValidMagCtor>(type: T): ComponentBuilder<T, Name, Readonly> {
-        this.ctor = type;
-        return this as ComponentBuilder<T, Name, Readonly>;
-    }
+        }
 
-    public string(): ComponentBuilder<typeof MagTypes.String, Name, Readonly> {
-        this.ctor = MagTypes.String;
-        return this as ComponentBuilder<typeof MagTypes.String, Name, Readonly>;
-    }
+        const ctor = component._constructor;
 
-    public number(): ComponentBuilder<typeof MagTypes.Number, Name, Readonly> {
-        this.ctor = MagTypes.Number;
-        return this as ComponentBuilder<typeof MagTypes.Number, Name, Readonly>;
-    }
+        try {
 
-    public boolean(): ComponentBuilder<typeof MagTypes.Boolean, Name, Readonly> {
-        this.ctor = MagTypes.Boolean;
-        return this as ComponentBuilder<typeof MagTypes.Boolean, Name, Readonly>;
-    }
+            const parsedEntries = [];
 
-    public tag(): ComponentBuilder<typeof MagTypes.Tag, Name, true> {
-        this.ctor = MagTypes.Tag;
-        return this as ComponentBuilder<typeof MagTypes.Tag, Name, true>;
-    }
+            for (const entry of json.store) {
 
-    public mutable(): ComponentBuilder<Type, Name, false> {
-        this.readonly = false;
-        return this as ComponentBuilder<Type, Name, false>;
-    }
+                parsedEntries.push({
+                    entity: entry.entity,
+                    data: ctor.fromJSON(entry.data),
+                });
 
-    public immutable(): ComponentBuilder<Type, Name, true> {
-        this.readonly = true;
-        return this as ComponentBuilder<Type, Name, true>;
-    }
+            }
 
-    public nonserialized(): ComponentBuilder<Type, Name, Readonly> {
-        this.serialized = false;
-        return this as ComponentBuilder<Type, Name, Readonly>;
-    }
+            component._store.fromList(parsedEntries);
 
-}
+        } catch (e) {
 
-export function component<N extends string>(name: N) {
+            console.warn(`Component.fromJSON: ${e}`);
 
-    return {
-
-        immutable: <T extends ValidMagCtor>(ctor: T) => Component.fromClass({ ctor, name, readonly: true }),
-        mutable: <T extends ValidMagCtor>(ctor: T) => Component.fromClass({ ctor, name, readonly: false }),
-        tag: () => Component.tag(name),
+        }
 
     }
 
 }
 
 class TestClass {
-    prop: string;
-    constructor(prop: string) {
-        this.prop = prop;
+    public a: string = "hi";
+    public B: number = 1;
+
+    constructor(a: string, B: number) {
+        this.a = a;
+        this.B = B;
     }
-    toJSON() {
-        return { prop: this.prop };
+
+    static fromJSON(json: {a: string, B: number}): TestClass {
+        return new TestClass(json.a, json.B);
     }
-    static fromJSON(json: { prop: string }) {
-        return new TestClass(json.prop);
+
+    static toJSON(value: TestClass): { a: string, B: number } {
+        return { a: value.a, B: value.B };
     }
 }
 
-// var test = component("Name").immutable(Boolean);
-// var testAcc = new Accessor<typeof test>();
-// testAcc.component = test;
-// testAcc.entity = 1;
-// (testAcc.data as any) = new TestClass("Hello");
+var test = new Component({
+    isTagType: false,
+    isReadonly: true,
+    name: "TestManual",
+    ctor: TestClass,
+});
 
-// testAcc.mutate((current) => {
-//     current = false;
-// });
+/**
+ * Component builder utility fn, made to make {@link Component} definitions easier
+ * to interpret visually than when using the {@link Component} constructor.
+ * 
+ * @param {string} name The component name.
+ * 
+ * @example 
+ * // Equivalent JS for a string component.
+ * const cmp = new Component({ isTagType: false, isReadonly: true, name: "StringCmp", ctor: MagTypes.String });
+ * const cmp = component("StringCmp").string().immutable();
+ * 
+ * // Equivalent JS for a class component using 'DataClass' instances as data.
+ * const classCmp = new Component({ isTagType: false, isReadonly: false, name: "ClassCmp", ctor: DataClass });
+ * const classCmp = component("ClassCmp").class(DataClass).mutable();
+ */
+export function component<Name extends string>(name: Name) {
+
+    return {
+
+        class<T extends MagDataClassCtor<any, any, any>>(ctor: T) {
+
+            type Inst = T extends MagDataClassCtor<infer I, any, any> ? I : never;
+            type Json = T extends MagDataClassCtor<any, infer J, any> ? J : never;
+            type Data = T extends MagDataClassCtor<any, any, infer D> ? D : never;
+
+            return {
+
+                immutable(): Component<Inst, Data, Json, T, Name, true> {
+
+                    return new Component<Inst, Data, Json, T, Name, true>({
+                        isTagType: false,
+                        isReadonly: true,
+                        name,
+                        ctor,
+                    });
+
+                },
+
+                mutable(): Component<Inst, Data, Json, T, Name, false> {
+
+                    return new Component<Inst, Data, Json, T, Name, false>({
+                        isTagType: false,
+                        isReadonly: false,
+                        name,
+                        ctor,
+                    })
+
+                }
+
+            }
+
+        },
+
+        string() {
+            
+            return {
+
+                immutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: true,
+                        name,
+                        ctor: MagTypes.String,
+                    });
+
+                },
+
+                mutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: false,
+                        name,
+                        ctor: MagTypes.String,
+                    });
+
+                }
+
+            }
+
+        },
+
+        number() {
+
+            return {
+
+                immutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: true,
+                        name,
+                        ctor: MagTypes.Number,
+                    });
+
+                },
+
+                mutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: false,
+                        name,
+                        ctor: MagTypes.Number,
+                    });
+
+                }
+
+            }
+        
+        },
+
+        boolean() {
+
+            return {
+
+                immutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: true,
+                        name,
+                        ctor: MagTypes.Boolean,
+                    });
+
+                },
+
+                mutable() {
+
+                    return new Component({
+                        isTagType: false,
+                        isReadonly: false,
+                        name,
+                        ctor: MagTypes.Boolean,
+                    });
+
+                }
+
+            }
+        
+        },
+
+        tag() {
+
+            return new Component({
+                isTagType: true,
+                isReadonly: true,
+                name,
+                ctor: MagTypes.Tag,
+            });
+        
+        },
+
+    }
+
+}
+
+export class ComponentQueryAccessor<
+    Q extends Query,
+    Cmps extends readonly Component[] = Q extends Query<infer Types> ? Types : never,
+    Data extends readonly any[] = CmpDataTuple<Cmps>,
+    List = ToArrays<Data>,
+> {
+    public query: Query;
+    private dirty: boolean;
+    public entities: number[];
+    public components: List;
+
+    public constructor(world: World, query: Query) {
+        this.query = query;
+        this.dirty = false;
+        this.entities = world.getEntityIds(query);
+        this.components = Component.getQueryComponentLists(this.query, this.entities);
+    }
+}
+
+const strCmp = component("TestStr").string().immutable();
+const booCmp = component("TestBoo").boolean().immutable();
+const claCmp = component("TestClass").class(TestClass).immutable();
+const testQuery = new Query().all(strCmp, booCmp, claCmp)
+
+type TestQuery = ComponentQueryAccessor<typeof testQuery>['components'];
+
+export type CmpDataTuple<T extends readonly Component[]> = {
+    [K in keyof T]: T[K] extends Component<any, infer Data> ? Data : never;
+}
+
+export type ToArrays<L extends readonly any[]> = {
+    [K in keyof L]: L[K][];
+}

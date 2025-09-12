@@ -102,10 +102,14 @@ export interface MagDataClassCtor<Inst, Json extends JSONValue, Data = DataFromM
 
 export type CtorData<T extends MagDataClassCtor<unknown, JSONValue, unknown>> = T extends MagDataClassCtor<unknown, JSONValue, infer Data> ? Data : never;
 
-export type CtorReadData<T extends MagDataClassCtor<unknown, JSONValue>, R extends boolean> =
+export type CtorReadData<T extends MagDataClassCtor<unknown, JSONValue>, R extends boolean, S extends boolean = false> =
+    S extends true ? DeepReadonly<CtorData<T>> :
     R extends true ? DeepReadonly<CtorData<T>> : CtorData<T>;
 
-export type CtorMutArgData<T extends MagDataClassCtor<unknown, JSONValue>, R extends boolean> =
+export type CtorStaticData<T extends MagDataClassCtor<unknown, JSONValue>, R extends boolean, S extends boolean> =
+    S extends true ? R extends true ? DeepReadonly<CtorData<T>> : CtorData<T> : DeepReadonly<CtorData<T>>;
+
+export type CtorMutArgData<T extends MagDataClassCtor<unknown, JSONValue>, R extends boolean, S extends boolean = false> =
     R extends true ? never : CtorData<T>;
 
 /**
@@ -119,3 +123,12 @@ export type DeepReadonly<T> =
         : T extends object // nested objects recurse
             ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
             : T; // primitives stay the same
+
+export type DeepStaticReadonly<T> =
+    T extends Array<infer U> // creating readonly array
+        ? ReadonlyArray<DeepStaticReadonly<U>>
+        : T extends Function
+            ? never
+        : T extends object
+            ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+            : T;

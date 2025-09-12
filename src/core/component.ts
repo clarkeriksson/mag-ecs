@@ -188,13 +188,13 @@ export class Component<
 
     }
 
-    public add(entity: number, value: CtorData<Type>): boolean {
+    public add(entity: Shared extends true ? never : number, value: CtorData<Type>): boolean {
 
         return this._store.add(entity, value);
 
     }
 
-    public remove(entity: number): boolean {
+    public remove(entity: Shared extends true ? never : number): boolean {
 
         const removed = this._store.remove(entity);
         return removed !== undefined;

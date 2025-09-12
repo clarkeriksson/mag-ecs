@@ -124,7 +124,7 @@ class World {
         Type extends MagDataClassCtor<Inst, Json, Data>,
         Name extends string,
         Read extends boolean,
-    >(entity: number, type: Component<Inst, Data, Json, Type, Name, Read>, value: CtorData<Type>) {
+    >(entity: number, type: Component<Inst, Data, Json, Type, Name, Read, false>, value: CtorData<Type>) {
 
         type.add(entity, value);
 
